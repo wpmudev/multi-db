@@ -1,0 +1,32 @@
+Plugin Name: Multi-DB
+Author: Andrew Billits
+
+Files:
+----------------------------------------------------------------------
+db.php - goes in /wp-content
+db-config.php - goes in /wp-content
+move-blogs.php - goes in /wp-content/scripts
+
+db-config-sample-16.php - <<<EXAMPLE FILE ONLY>>>
+db-config-sample-256.php - <<<EXAMPLE FILE ONLY>>>
+
+Instructions:
+----------------------------------------------------------------------
+1) Place the files in the specified directories
+2) Configure db-config.php
+Tools: http://db-tools.wpmudev.org/
+
+Notes:
+----------------------------------------------------------------------
+1) You can name your databases cute names like "Turkey" and "Ham" if you would like. However, over time you will find yourself doing much less work if you just name the databases something like "wpmu_a, "wpmu_1", etc.
+2) While support IS included with your WPMUDEV Premium account, we will not install this on your server for you. Support is limited to fixing bugs and adding new features.
+3) The tool provided to move blogs to your new databases is provided "as is". We are not to be held responsibly for any damage it may cause.
+4) Always make sure you have a valid backup before attempting anything database related.
+
+Disclaimer:
+----------------------------------------------------------------------
+- This Software is provided As IS. We are not responsible for any damage caused by this software.
+
+- While we do test each version prior to release, it is ultimately up to you to create backups before installing or upgrading this software.
+
+- This software is intended for advanced users. If you do not have any grasp of PHP, MySQL, or Apache, we ask that you not use this software.
