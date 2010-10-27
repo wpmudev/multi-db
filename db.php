@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI:
 Description:
 Author: Andrew Billits
-Version: 2.9.2
+Version: 3.0.2
 Author URI:
 WDP ID: 119
 */
@@ -105,6 +105,9 @@ class m_wpdb extends wpdb {
 
 	var $srtm = false;
 
+	var $dbh;	// will now always hold the global database
+	var $dbhglobal; //
+
 	/**
 	 * Connects to the database server and selects a database
 	 * @param string $dbuser
@@ -112,6 +115,97 @@ class m_wpdb extends wpdb {
 	 * @param string $dbname
 	 * @param string $dbhost
 	 */
+
+	function m_wpdb( $dbuser, $dbpassword, $dbname, $dbhost ) {
+		return $this->__construct( $dbuser, $dbpassword, $dbname, $dbhost );
+	}
+
+	function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
+
+		register_shutdown_function( array( &$this, '__destruct' ) );
+
+		if ( WP_DEBUG )
+			$this->show_errors();
+
+		if ( is_multisite() ) {
+			$this->charset = 'utf8';
+			if ( defined( 'DB_COLLATE' ) && DB_COLLATE )
+				$this->collate = DB_COLLATE;
+			else
+				$this->collate = 'utf8_general_ci';
+		} elseif ( defined( 'DB_COLLATE' ) ) {
+			$this->collate = DB_COLLATE;
+		}
+
+		if ( defined( 'DB_CHARSET' ) )
+			$this->charset = DB_CHARSET;
+
+		$this->dbuser = $dbuser;
+
+		// Try to connect to the database
+		$global = $this->get_global_read();
+
+		$this->dbhglobal = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
+		$this->dbh = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
+
+		if ( !$this->dbhglobal ) {
+			$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
+	<h1>Error finding a global database</h1>
+	<p>This either means that the username and password information in your <code>db-config.php</code> file is incorrect, you haven't declared a global database or we can't contact the global database server. This could mean your host's database server is down.</p>
+	<ul>
+		<li>Are you sure you have the correct username and password?</li>
+		<li>Are you sure that you have typed the correct hostname?</li>
+		<li>Are you sure that the database server is running?</li>
+	</ul>
+	<p>If you're unsure what these terms mean you should probably contact your host. If you still need help you can always visit the <a href='http://wordpress.org/support/'>WordPress Support Forums</a>.</p>
+	"/*/WP_I18N_DB_CONN_ERROR*/ ), 'db_connect_fail' );
+		}
+
+		$this->ready = true;
+
+		if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
+			if ( function_exists( 'mysql_set_charset' ) ) {
+				mysql_set_charset( $this->charset, $this->dbhglobal );
+				$this->real_escape = true;
+			} else {
+				$query = $this->prepare( 'SET NAMES %s', $this->charset );
+				if ( ! empty( $this->collate ) )
+					$query .= $this->prepare( ' COLLATE %s', $this->collate );
+				$this->query( $query );
+			}
+		}
+
+		$this->select( $global['name'], $this->dbhglobal );
+
+
+	}
+
+	function get_global_read() {
+		global $db_servers;
+
+		if(is_array($db_servers['global'])) {
+			if(count($db_servers['global']) > 1) {
+				foreach($db_servers['global'] as $global) {
+					if($global['dc'] == DATACENTER && $global['read'] > 0) {
+						return $global;
+					}
+				}
+				// If still here we can't find a local readable global database so return first readable one
+				foreach($db_servers['global'] as $global) {
+					if($global['read'] > 0) {
+						return $global;
+					}
+				}
+				// Nope, none of those either so exit.
+				return false;
+			} else {
+				return $db_servers['global'][0];
+			}
+		} else {
+			return false;
+		}
+	}
+
 
 	//------------------------------------------------------------------------//
 	//---Multi-DB-------------------------------------------------------------//
@@ -125,7 +219,7 @@ class m_wpdb extends wpdb {
 		if ( empty( $query ) )
 			return false;
 
-		$query_data = $this->analyze_query ( $query );
+		$query_data = $this->analyze_query( $query );
 
 		$this->last_table = $query_data['table_name'];
 		$this->last_db_used = $query_data['query_type'];
@@ -137,6 +231,11 @@ class m_wpdb extends wpdb {
 			$operation = 'write';
 		} else {
 			$operation = 'read';
+		}
+
+		// Return a global read database as if already have it connected
+		if($operation == 'read' && $query_data['dataset'] == 'global' && is_resource($this->dbhglobal)) {
+			return $this->dbhglobal;
 		}
 
 		if ( $query_data['query_type'] == 'write' && defined( 'MASTER_DB_DEAD' ) ) {
@@ -155,7 +254,7 @@ class m_wpdb extends wpdb {
 				unset($this->open_connections[$k]);
 				$this->open_connections[] = $query_data['dataset'];
 			}
-
+			//echo $operation . " - " . $query_data['dataset'] . " - " . $query . "\n";
 			return $dbh; // all done for now - off we go
 		}
 
@@ -220,13 +319,22 @@ class m_wpdb extends wpdb {
 		} // end foreach ( $servers as $server )
 
 		if ( !isset($dbh) && !is_resource($dbh) )
-			$this->handle_error_connecting( $dbhname, array( 'server' => $server, 'error' => mysql_error() ) );
+			$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
+<h1>Error finding a database server</h1>
+<p>This either means that the username and password information in your <code>db-config.php</code> file is incorrect, you haven't declared a global database or we can't contact the global database server. This could mean your host's database server is down.</p>
+<ul>
+	<li>Are you sure you have the correct username and password?</li>
+	<li>Are you sure that you have typed the correct hostname?</li>
+	<li>Are you sure that the database server is running?</li>
+</ul>
+<p>If you're unsure what these terms mean you should probably contact your host. If you still need help you can always visit the <a href='http://wordpress.org/support/'>WordPress Support Forums</a>.</p>
+"/*/WP_I18N_DB_CONN_ERROR*/ ), 'db_connect_fail' );
 
 		$this->select( $dbhname, $dbh );
 
 
-		while ( count($this->open_connections) > $this->max_connections )
-			$this->disconnect(array_shift($this->open_connections));
+		//while ( count($this->open_connections) > $this->max_connections )
+		//	$this->disconnect(array_shift($this->open_connections));
 
 		return $dbh;
 	}
@@ -266,20 +374,14 @@ class m_wpdb extends wpdb {
 
 		// use $this->dbh for read ops, and $this->dbhwrite for write ops
 		// use $this->dbhglobal for gloal table ops
-		unset( $dbh );
+		//unset( $dbh );
 
 		// Test the global is set and if not then set it
-		/*if( $query_data['dataset'] == 'global' ) {
-		 	if( false == isset( $this->dbhglobal ) ) {
-				$this->db_connect( $query );
-			}
-			$dbh =& $this->dbhglobal;
-		} else {
-			$this->db_connect( $query );
-			//dbh_connections
+
+		$dbh = $this->db_connect( $query );
+		if(!is_resource($dbh)) {
+			echo "oops";
 		}
-		*/
-		$dbh =& $this->db_connect( $query );
 
 		$this->result = @mysql_query( $query, $dbh );
 		$this->num_queries++;
@@ -288,9 +390,13 @@ class m_wpdb extends wpdb {
 			$this->queries[] = array( $query, $this->timer_stop(), $this->get_caller() );
 
 		// If there is an error then take note of it..
-		if ( $this->last_error = mysql_error( $dbh ) ) {
+		if ( is_resource( $dbh ) && $this->last_error = mysql_error( $dbh ) ) {
 			$this->print_error();
 			return false;
+		}
+
+		if(!is_resource( $dbh )) {
+			echo "oops";
 		}
 
 		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter) /i", $query ) ) {
@@ -319,6 +425,12 @@ class m_wpdb extends wpdb {
 			// and return number of rows selected
 			$this->num_rows = $num_rows;
 			$return_val     = $num_rows;
+		}
+
+		if(!empty($this->last_result)) {
+			//print_r($this->last_result);
+		} else {
+			//echo "no data\n";
 		}
 
 		return $return_val;
@@ -354,6 +466,8 @@ class m_wpdb extends wpdb {
 		} else if ( preg_match('/^SHOW TABLES LIKE \'?`?(\w+)\'?`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^SHOW INDEX FROM `?(\w+)`?\s*/is', $query, $maybe) ) {
+			$table_name = $maybe[1];
+		} else if ( preg_match('/^SHOW\s+\w*\s*COLUMNS (?:FROM|IN) `?(\w+)`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
@@ -444,13 +558,16 @@ class m_wpdb extends wpdb {
 			$query_type = 'write';
 		}
 		if ( preg_match('/^\s*ALTER\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
-			$query_type = $maybe[1];
+			$query_type = 'write';
 		}
 		if ( preg_match('/^\s*DESCRIBE\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
-			$query_type = $maybe[1];
+			$query_type = 'read';
 		}
 		if ( preg_match('/^\s*SHOW\s+INDEX\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
-			$query_type = $maybe[1];
+			$query_type = 'read';
+		}
+		if ( preg_match('/^SHOW\s+\w*\s*COLUMNS (?:FROM|IN) `?(\w+)`?\s*/is', $query, $maybe) ) {
+			$query_type = 'read';
 		}
 		if ( preg_match('/^\s*SELECT.*?\s+FOUND_ROWS\(\)/is', $query) ) {
 			$query_type = 'read';
@@ -501,6 +618,33 @@ class m_wpdb extends wpdb {
 
 	function send_reads_to_masters() {
 		$this->srtm = true;
+	}
+
+	/**
+	 * Real escape, using mysql_real_escape_string() or addslashes()
+	 *
+	 * @see mysql_real_escape_string()
+	 * @see addslashes()
+	 * @since 2.8
+	 * @access private
+	 *
+	 * @param  string $string to escape
+	 * @return string escaped
+	 */
+	function _real_escape( $string ) {
+		if ( is_resource($this->dbhglobal) && $this->real_escape )
+			return mysql_real_escape_string( $string, $this->dbhglobal );
+		else
+			return addslashes( $string );
+	}
+
+	/**
+	 * The database version number.
+	 *
+	 * @return false|string false on failure, version number on success
+	 */
+	function db_version() {
+		return preg_replace( '/[^0-9.].*/', '', mysql_get_server_info( $this->dbhglobal ) );
 	}
 
 	//------------------------------------------------------------------------//
