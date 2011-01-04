@@ -6,7 +6,7 @@ Description:
 Author: Andrew Billits
 Version: 3.0.2
 Author URI:
-WDP ID: 119
+WDP ID: 1
 */
 //  WordPress DB Class
 //
