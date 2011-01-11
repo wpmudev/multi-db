@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI:
 Description:
 Author: Andrew Billits
-Version: 3.0.2
+Version: 3.0.5
 Author URI:
 WDP ID: 1
 */
