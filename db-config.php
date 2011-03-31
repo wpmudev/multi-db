@@ -1,7 +1,7 @@
 <?php
 //	Plugin Name: Multi-DB
 //	Plugin URI: http://premium.wpmudev.org/project/Multiple-Databases
-//	Author: Andrew Billits (Incsub)
+//	Author: Andrew Billits (Incsub), S H Mohanjith (Incsub)
 //  Version: 2.9.2
 //------------------------------------------------------------------------//
 //---DB Scaling-----------------------------------------------------------//

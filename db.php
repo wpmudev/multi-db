@@ -3,7 +3,7 @@
 Plugin Name: Multi-DB
 Plugin URI:
 Description:
-Author: Andrew Billits
+Author: Andrew Billits, S H Mohanjith (Incsub)
 Version: 3.0.5
 Author URI:
 WDP ID: 1
@@ -297,6 +297,19 @@ class m_wpdb extends wpdb {
 			$host = $server['host'];
 
 			$dbh = @mysql_connect( $host, $server['user'], $server['password'] );
+			
+			// For every new connection we should set the character set
+			if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
+				if ( function_exists( 'mysql_set_charset' ) ) {
+					mysql_set_charset( $this->charset, $this->dbhglobal );
+					$this->real_escape = true;
+				} else {
+					$query = $this->prepare( 'SET NAMES %s', $this->charset );
+					if ( ! empty( $this->collate ) )
+						$query .= $this->prepare( ' COLLATE %s', $this->collate );
+					@mysql_query( $query );
+				}
+			}
 
 			if ( isset($dbh) && is_resource($dbh) )  {
 
