@@ -673,4 +673,3 @@ class m_wpdb extends wpdb {
 }
 
 $wpdb = new m_wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
-?>
