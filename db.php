@@ -146,7 +146,7 @@ class m_wpdb extends wpdb {
 		$global = $this->get_global_read();
 
 		$this->dbhglobal = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
-		$this->dbh = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
+		$this->dbh = $this->dbhglobal;
 
 		if ( !$this->dbhglobal ) {
 			$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
@@ -171,7 +171,7 @@ class m_wpdb extends wpdb {
 				$query = $this->prepare( 'SET NAMES %s', $this->charset );
 				if ( ! empty( $this->collate ) )
 					$query .= $this->prepare( ' COLLATE %s', $this->collate );
-				$this->query( $query );
+				@mysql_query( $query, $this->dbhglobal );
 			}
 		}
 
@@ -301,13 +301,13 @@ class m_wpdb extends wpdb {
 			// For every new connection we should set the character set
 			if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
 				if ( function_exists( 'mysql_set_charset' ) ) {
-					mysql_set_charset( $this->charset, $this->dbhglobal );
+					mysql_set_charset( $this->charset, $dbh );
 					$this->real_escape = true;
 				} else {
 					$query = $this->prepare( 'SET NAMES %s', $this->charset );
 					if ( ! empty( $this->collate ) )
 						$query .= $this->prepare( ' COLLATE %s', $this->collate );
-					@mysql_query( $query );
+					@mysql_query( $query, $dbh );
 				}
 			}
 
