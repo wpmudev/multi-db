@@ -2,9 +2,9 @@
 /*
 Plugin Name: Multi-DB
 Plugin URI:
-Description:
-Author: Andrew Billits, S H Mohanjith (Incsub)
-Version: 3.0.6
+Description: If you are reading this and you are not in the drop-ins plugin list then it is in the wrong place.
+Author: Barry Getty / Andrew Billits / S H Mohanjith (Incsub)
+Version: 3.1
 Author URI:
 WDP ID: 1
 */
@@ -71,13 +71,16 @@ function add_dc_ip($ip, $dc) {
 	global $dc_ips;
 	$dc_ips[$ip] = $dc;
 }
+
 require_once( ABSPATH . 'wp-content/db-config.php' );
+
 foreach ( $dc_ips as $dc_ip => $dc ) {
 	if ( substr($_SERVER['SERVER_ADDR'], 0, strlen($dc_ip)) == $dc_ip ) {
 		define( 'DATACENTER', $dc );
 		break;
 	}
 }
+
 if ( file_exists( ABSPATH . 'wp-content/db-list.php' ) ) {
 	require_once( ABSPATH . 'wp-content/db-list.php' );
 }
@@ -95,7 +98,6 @@ if (!defined('OBJECT')) define('OBJECT', 'OBJECT', true);
 if (!defined('OBJECT_K')) define('OBJECT_K', 'OBJECT_K', false);
 if (!defined('ARRAY_A')) define('ARRAY_A', 'ARRAY_A', false);
 if (!defined('ARRAY_N')) define('ARRAY_N', 'ARRAY_N', false);
-
 
 class m_wpdb extends wpdb {
 
@@ -124,21 +126,21 @@ class m_wpdb extends wpdb {
 
 		register_shutdown_function( array( &$this, '__destruct' ) );
 
-		if ( WP_DEBUG )
+		if ( WP_DEBUG ) {
 			$this->show_errors();
-
-		if ( is_multisite() ) {
-			$this->charset = 'utf8';
-			if ( defined( 'DB_COLLATE' ) && DB_COLLATE )
-				$this->collate = DB_COLLATE;
-			else
-				$this->collate = 'utf8_general_ci';
-		} elseif ( defined( 'DB_COLLATE' ) ) {
-			$this->collate = DB_COLLATE;
 		}
 
-		if ( defined( 'DB_CHARSET' ) )
+		if(defined('DB_CHARSET')) {
 			$this->charset = DB_CHARSET;
+		} else {
+			$this->charset = 'utf8';
+		}
+
+		if ( defined( 'DB_COLLATE' ) ) {
+			$this->collate = DB_COLLATE;
+		} else {
+			$this->collate = 'utf8_general_ci';
+		}
 
 		$this->dbuser = $dbuser;
 
@@ -163,21 +165,22 @@ class m_wpdb extends wpdb {
 
 		$this->ready = true;
 
-		if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
-			if ( function_exists( 'mysql_set_charset' ) ) {
-				mysql_set_charset( $this->charset, $this->dbhglobal );
+		if ( $this->has_cap( 'collation', $this->dbh ) && !empty( $this->charset ) ) {
+			if ( function_exists( 'mysql_set_charset' ) && $this->has_cap( 'set_charset', $this->dbh ) ) {
+				mysql_set_charset( $this->charset, $this->dbh );
 				$this->real_escape = true;
 			} else {
 				$query = $this->prepare( 'SET NAMES %s', $this->charset );
-				if ( ! empty( $this->collate ) )
+
+				if ( ! empty( $this->collate ) ) {
 					$query .= $this->prepare( ' COLLATE %s', $this->collate );
-				@mysql_query( $query, $this->dbhglobal );
+
+				}
+				@mysql_query( $query, $this->dbh );
 			}
 		}
 
 		$this->select( $global['name'], $this->dbhglobal );
-
-
 	}
 
 	function get_global_read() {
@@ -297,16 +300,19 @@ class m_wpdb extends wpdb {
 			$host = $server['host'];
 
 			$dbh = @mysql_connect( $host, $server['user'], $server['password'] );
-			
+
 			// For every new connection we should set the character set
-			if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
-				if ( function_exists( 'mysql_set_charset' ) ) {
+			if ( $this->has_cap( 'collation', $dbh ) && !empty( $this->charset ) ) {
+				if ( function_exists( 'mysql_set_charset' ) && $this->has_cap( 'set_charset', $dbh ) ) {
 					mysql_set_charset( $this->charset, $dbh );
 					$this->real_escape = true;
 				} else {
 					$query = $this->prepare( 'SET NAMES %s', $this->charset );
-					if ( ! empty( $this->collate ) )
+
+					if ( ! empty( $this->collate ) ) {
 						$query .= $this->prepare( ' COLLATE %s', $this->collate );
+
+					}
 					@mysql_query( $query, $dbh );
 				}
 			}
