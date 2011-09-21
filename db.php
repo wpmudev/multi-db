@@ -2,9 +2,9 @@
 /*
 Plugin Name: Multi-DB
 Plugin URI:
-Description: If you are reading this and you are not in the drop-ins plugin list then it is in the wrong place.
-Author: Barry Getty / Andrew Billits / S H Mohanjith (Incsub)
-Version: 3.1
+Description:
+Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
+Version: 3.0.7
 Author URI:
 WDP ID: 1
 */
@@ -52,11 +52,52 @@ function add_db_server($ds, $dc, $read, $write, $host, $lhost, $name, $user, $pa
 
 	$db_servers[$ds][] = $server;
 }
-$global_tables = array ($table_prefix . 'blogs',$table_prefix . 'blog_versions',$table_prefix . 'registration_log',$table_prefix . 'signups',$table_prefix . 'site',$table_prefix . 'sitecategories',$table_prefix . 'sitemeta',$table_prefix . 'usermeta',$table_prefix . 'users',$table_prefix . 'bp_activity_sitewide',$table_prefix . 'bp_activity_user_activity',$table_prefix . 'bp_activity_user_activity_cached',$table_prefix . 'bp_friends',$table_prefix . 'bp_groups',$table_prefix . 'bp_groups_groupmeta',$table_prefix . 'bp_groups_members',$table_prefix . 'bp_groups_wire',$table_prefix . 'bp_messages_messages',$table_prefix . 'bp_messages_notices',$table_prefix . 'bp_messages_notices',$table_prefix . 'bp_messages_recipients',$table_prefix . 'bp_messages_threads',$table_prefix . 'bp_messages_threads',$table_prefix . 'bp_notifications',$table_prefix . 'bp_user_blogs',$table_prefix . 'bp_user_blogs_blogmeta',$table_prefix . 'bp_user_blogs_comments',$table_prefix . 'bp_user_blogs_posts',$table_prefix . 'bp_xprofile_data',$table_prefix . 'bp_xprofile_fields',$table_prefix . 'bp_xprofile_groups',$table_prefix . 'bp_xprofile_wire',$table_prefix . 'bp_activity',$table_prefix . 'bp_activity_meta');
+
+$standard_global_tables = array ('blogs',
+						'blog_versions',
+						'registration_log',
+						'signups',
+						'site',
+						'sitecategories',
+						'sitemeta',
+						'usermeta',
+						'users',
+						'bp_activity_sitewide',
+						'bp_activity_user_activity',
+						'bp_activity_user_activity_cached',
+						'bp_friends',
+						'bp_groups',
+						'bp_groups_groupmeta',
+						'bp_groups_members',
+						'bp_groups_wire',
+						'bp_messages_messages',
+						'bp_messages_notices',
+						'bp_messages_notices',
+						'bp_messages_recipients',
+						'bp_messages_threads',
+						'bp_messages_threads',
+						'bp_notifications',
+						'bp_user_blogs',
+						'bp_user_blogs_blogmeta',
+						'bp_user_blogs_comments',
+						'bp_user_blogs_posts',
+						'bp_xprofile_data',
+						'bp_xprofile_fields',
+						'bp_xprofile_groups',
+						'bp_xprofile_wire',
+						'bp_activity',
+						'bp_activity_meta');
+
+foreach($standard_global_tables as $table) {
+	add_global_table( $table );
+}
+
 //	add_global_table(TABLE_NAME)
 function add_global_table($table_name) {
 	global $global_tables;
-	array_push ($global_tables,$table_name);
+
+	$global_tables[$table_name] = $table_name;
+
 }
 $vip_blogs = array ();
 //	add_vip_blog(BLOG_ID, DS)
@@ -71,16 +112,13 @@ function add_dc_ip($ip, $dc) {
 	global $dc_ips;
 	$dc_ips[$ip] = $dc;
 }
-
 require_once( ABSPATH . 'wp-content/db-config.php' );
-
 foreach ( $dc_ips as $dc_ip => $dc ) {
 	if ( substr($_SERVER['SERVER_ADDR'], 0, strlen($dc_ip)) == $dc_ip ) {
 		define( 'DATACENTER', $dc );
 		break;
 	}
 }
-
 if ( file_exists( ABSPATH . 'wp-content/db-list.php' ) ) {
 	require_once( ABSPATH . 'wp-content/db-list.php' );
 }
@@ -98,6 +136,7 @@ if (!defined('OBJECT')) define('OBJECT', 'OBJECT', true);
 if (!defined('OBJECT_K')) define('OBJECT_K', 'OBJECT_K', false);
 if (!defined('ARRAY_A')) define('ARRAY_A', 'ARRAY_A', false);
 if (!defined('ARRAY_N')) define('ARRAY_N', 'ARRAY_N', false);
+
 
 class m_wpdb extends wpdb {
 
@@ -126,21 +165,21 @@ class m_wpdb extends wpdb {
 
 		register_shutdown_function( array( &$this, '__destruct' ) );
 
-		if ( WP_DEBUG ) {
+		if ( WP_DEBUG )
 			$this->show_errors();
-		}
 
-		if(defined('DB_CHARSET')) {
-			$this->charset = DB_CHARSET;
-		} else {
+		if ( is_multisite() ) {
 			$this->charset = 'utf8';
+			if ( defined( 'DB_COLLATE' ) && DB_COLLATE )
+				$this->collate = DB_COLLATE;
+			else
+				$this->collate = 'utf8_general_ci';
+		} elseif ( defined( 'DB_COLLATE' ) ) {
+			$this->collate = DB_COLLATE;
 		}
 
-		if ( defined( 'DB_COLLATE' ) ) {
-			$this->collate = DB_COLLATE;
-		} else {
-			$this->collate = 'utf8_general_ci';
-		}
+		if ( defined( 'DB_CHARSET' ) )
+			$this->charset = DB_CHARSET;
 
 		$this->dbuser = $dbuser;
 
@@ -148,7 +187,7 @@ class m_wpdb extends wpdb {
 		$global = $this->get_global_read();
 
 		$this->dbhglobal = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
-		$this->dbh = $this->dbhglobal;
+		$this->dbh = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
 
 		if ( !$this->dbhglobal ) {
 			$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
@@ -165,22 +204,21 @@ class m_wpdb extends wpdb {
 
 		$this->ready = true;
 
-		if ( $this->has_cap( 'collation', $this->dbh ) && !empty( $this->charset ) ) {
-			if ( function_exists( 'mysql_set_charset' ) && $this->has_cap( 'set_charset', $this->dbh ) ) {
-				mysql_set_charset( $this->charset, $this->dbh );
+		if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
+			if ( function_exists( 'mysql_set_charset' ) ) {
+				mysql_set_charset( $this->charset, $this->dbhglobal );
 				$this->real_escape = true;
 			} else {
 				$query = $this->prepare( 'SET NAMES %s', $this->charset );
-
-				if ( ! empty( $this->collate ) ) {
+				if ( ! empty( $this->collate ) )
 					$query .= $this->prepare( ' COLLATE %s', $this->collate );
-
-				}
-				@mysql_query( $query, $this->dbh );
+				$this->query( $query );
 			}
 		}
 
 		$this->select( $global['name'], $this->dbhglobal );
+
+
 	}
 
 	function get_global_read() {
@@ -302,18 +340,15 @@ class m_wpdb extends wpdb {
 			$dbh = @mysql_connect( $host, $server['user'], $server['password'] );
 
 			// For every new connection we should set the character set
-			if ( $this->has_cap( 'collation', $dbh ) && !empty( $this->charset ) ) {
-				if ( function_exists( 'mysql_set_charset' ) && $this->has_cap( 'set_charset', $dbh ) ) {
-					mysql_set_charset( $this->charset, $dbh );
+			if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
+				if ( function_exists( 'mysql_set_charset' ) ) {
+					mysql_set_charset( $this->charset, $this->dbhglobal );
 					$this->real_escape = true;
 				} else {
 					$query = $this->prepare( 'SET NAMES %s', $this->charset );
-
-					if ( ! empty( $this->collate ) ) {
+					if ( ! empty( $this->collate ) )
 						$query .= $this->prepare( ' COLLATE %s', $this->collate );
-
-					}
-					@mysql_query( $query, $dbh );
+					@mysql_query( $query );
 				}
 			}
 
@@ -424,7 +459,7 @@ class m_wpdb extends wpdb {
 		}
 
 		if(!is_resource( $dbh )) {
-			echo "oops";
+			//echo "oops";
 		}
 
 		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter) /i", $query ) ) {
@@ -468,6 +503,9 @@ class m_wpdb extends wpdb {
 		global $original_table_prefix, $global_tables, $vip_blogs, $vip_blogs_datasets;
 		//Save Query
 		$original_query = $query;
+		// Set initial force local stuff.
+		$forcelocal = false;
+
 		//Table
 		If( substr( $query, -1 ) == ';' )
 			$query = substr( $query, 0, -1 );
@@ -493,6 +531,10 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^SHOW TABLES LIKE \'?`?(\w+)\'?`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
+		} else if ( preg_match('/^SHOW TABLES/is', $query, $maybe) ) {
+			$table_name = $maybe[1];//from db delta
+			$query_type = 'read';
+			$forcelocal = true;
 		} else if ( preg_match('/^SHOW INDEX FROM `?(\w+)`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^SHOW\s+\w*\s*COLUMNS (?:FROM|IN) `?(\w+)`?\s*/is', $query, $maybe) ) {
@@ -519,30 +561,35 @@ class m_wpdb extends wpdb {
 			$table_name = 'unknown';
 		}
 		//Global/Blog Table
-		if ( in_array($table_name, $global_tables) || in_array(str_replace($original_table_prefix,'',$table_name), $global_tables) ) {
-			$table_type = 'global';
-		} else {
+		if($forcelocal == true) {
 			$table_type = 'blog';
-		}
-		//Get Saved Query
-		 $query = $original_query;
-		//Get Blog ID
-		if ( $table_type == 'blog' ){
-			$match = $table_name;
-			$base_table_name = str_replace($original_table_prefix,'',$table_name);
-			preg_match("|[0-9]{1,20}_?|",$base_table_name,$base_match);
-
-			if(isset($base_match[0])) {
-				$base_table_name = str_replace($base_match[0],'',$base_table_name);
-			}
-
-			if(preg_match("|" . $original_table_prefix . "[0-9]{1,20}_?" . $base_table_name . "|",$match,$match) == true) {
-				$blog_id = str_replace($original_table_prefix,'',$match[0]);
-				$blog_id = str_replace('_' . $base_table_name,'',$blog_id);
-			}
+			$blog_id = $this->blogid;
 		} else {
-			$blog_id = 'global';
+			if ( in_array(str_replace($original_table_prefix,'',$table_name), $global_tables) ) {
+				// This is a global table
+				$table_type = 'global';
+				$blog_id = 'global';
+			} else {
+				// Should be a blog related table
+				$table_type = 'blog';
+
+				$match = $table_name;
+				$base_table_name = str_replace($original_table_prefix,'',$table_name);
+				preg_match("|[0-9]{1,20}_?|",$base_table_name,$base_match);
+
+				if(isset($base_match[0])) {
+					$base_table_name = str_replace($base_match[0],'',$base_table_name);
+				}
+
+				if(preg_match("|" . $original_table_prefix . "[0-9]{1,20}_?" . $base_table_name . "|",$match,$match) == true) {
+					$blog_id = str_replace($original_table_prefix,'',$match[0]);
+					$blog_id = str_replace('_' . $base_table_name,'',$blog_id);
+				}
+			}
+			//Get Saved Query
+			 $query = $original_query;
 		}
+
 		//Get Saved Query
 		 $query = $original_query;
 		//Read/Write Query
