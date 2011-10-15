@@ -4,12 +4,11 @@ Plugin Name: Multi-DB
 Plugin URI: http://premium.wpmudev.org/project/multi-db
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
-Version: 3.0.7
+Version: 3.1
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
-
-WordPress DB Class
+Extends WordPress DB Class
 ORIGINAL CODE FROM:
 Justin Vincent (justin@visunet.ie)
 http://php.justinvincent.com
@@ -193,19 +192,9 @@ class m_wpdb extends wpdb {
 	"/*/WP_I18N_DB_CONN_ERROR*/ ), 'db_connect_fail' );
 		}
 
-		$this->ready = true;
+		$this->set_charset( $this->dbhglobal );
 
-		if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
-			if ( function_exists( 'mysql_set_charset' ) ) {
-				mysql_set_charset( $this->charset, $this->dbhglobal );
-				$this->real_escape = true;
-			} else {
-				$query = $this->prepare( 'SET NAMES %s', $this->charset );
-				if ( ! empty( $this->collate ) )
-					$query .= $this->prepare( ' COLLATE %s', $this->collate );
-				$this->query( $query );
-			}
-		}
+		$this->ready = true;
 
 		$this->select( $global['name'], $this->dbhglobal );
 
@@ -331,17 +320,7 @@ class m_wpdb extends wpdb {
 			$dbh = @mysql_connect( $host, $server['user'], $server['password'] );
 
 			// For every new connection we should set the character set
-			if ( $this->has_cap( 'collation' ) && !empty( $this->charset ) ) {
-				if ( function_exists( 'mysql_set_charset' ) ) {
-					mysql_set_charset( $this->charset, $this->dbhglobal );
-					$this->real_escape = true;
-				} else {
-					$query = $this->prepare( 'SET NAMES %s', $this->charset );
-					if ( ! empty( $this->collate ) )
-						$query .= $this->prepare( ' COLLATE %s', $this->collate );
-					@mysql_query( $query );
-				}
-			}
+			$this->set_charset( $dbh );
 
 			if ( isset($dbh) && is_resource($dbh) )  {
 
@@ -404,7 +383,6 @@ class m_wpdb extends wpdb {
 		// some queries are made before the plugins have been loaded, and thus cannot be filtered with this method
 		if ( function_exists( 'apply_filters' ) )
 			$query = apply_filters( 'query', $query );
-
 		$return_val = 0;
 		$this->flush();
 
@@ -425,7 +403,8 @@ class m_wpdb extends wpdb {
 
 		$dbh = $this->db_connect( $query );
 		if(!is_resource($dbh)) {
-			$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
+			$this->bail( sprintf(
+			"
 <h1>Error finding a database server</h1>
 <p>This either means that the username and password information in your <code>db-config.php</code> file is incorrect, you haven't declared a global database or we can't contact the global database server. This could mean your host's database server is down.</p>
 <ul>
@@ -434,7 +413,8 @@ class m_wpdb extends wpdb {
 	<li>Are you sure that the database server is running?</li>
 </ul>
 <p>If you're unsure what these terms mean you should probably contact your host. If you still need help you can always visit the <a href='http://wordpress.org/support/'>WordPress Support Forums</a>.</p>
-"/*/WP_I18N_DB_CONN_ERROR*/ ), 'db_connect_fail' );
+"
+ ), 'db_connect_fail' );
 		}
 
 		$this->result = @mysql_query( $query, $dbh );
@@ -523,7 +503,7 @@ class m_wpdb extends wpdb {
 		} else if ( preg_match('/^SHOW TABLES LIKE \'?`?(\w+)\'?`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^SHOW TABLES/is', $query, $maybe) ) {
-			$table_name = $maybe[1];//from db delta
+			//$table_name = $maybe[1];//from db delta
 			$query_type = 'read';
 			$forcelocal = true;
 		} else if ( preg_match('/^SHOW INDEX FROM `?(\w+)`?\s*/is', $query, $maybe) ) {
@@ -584,9 +564,14 @@ class m_wpdb extends wpdb {
 		//Get Saved Query
 		 $query = $original_query;
 		//Read/Write Query
+
+		/*
+		// Possible cause #1
 		if ( substr( $query, -1 ) == ';' ) {
 			$query = substr( $query, 0, -1 );
 		}
+		*/
+
 		if ( preg_match('/^\s*SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
 			$query_type = 'read';
 		}
