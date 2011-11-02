@@ -127,7 +127,6 @@ if (!defined('OBJECT_K')) define('OBJECT_K', 'OBJECT_K', false);
 if (!defined('ARRAY_A')) define('ARRAY_A', 'ARRAY_A', false);
 if (!defined('ARRAY_N')) define('ARRAY_N', 'ARRAY_N', false);
 
-
 class m_wpdb extends wpdb {
 
 	var $dbh_connections = array();
@@ -197,8 +196,8 @@ class m_wpdb extends wpdb {
 		$this->ready = true;
 
 		$this->select( $global['name'], $this->dbhglobal );
-
-
+		
+		add_filter('tables_to_repair', array(&$this, 'get_all_tables'), 10);
 	}
 
 	function get_global_read() {
@@ -697,8 +696,24 @@ class m_wpdb extends wpdb {
 	function db_version() {
 		return preg_replace( '/[^0-9.].*/', '', mysql_get_server_info( $this->dbhglobal ) );
 	}
+	
+	function get_all_tables($tables) {
+		global $db_servers;
+		
+		$blogs_ids = $wpdb->get_col("SELECT blog_id FROM {$this->base_prefix}blogs WHERE deleted = 0 AND spam = 0 AND archived = '0';");
+		
+		foreach ($blogs_ids as $blog_id) {
+			$new_tables = $wpdb->get_col("SHOW TABLES LIKE '{$this->base_prefix}_{$blog_id}_%';");
+			if ($new_tables && is_array($new_tables) && count($new_tables) > 0) {
+				$tables = array_merge($tables, $new_tables);
+			}
+		}
+		
+		return $tables;
+	}
 
 	//------------------------------------------------------------------------//
 }
 
 $wpdb = new m_wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
+
