@@ -46,7 +46,7 @@ if ( !defined('WP_ALLOW_REPAIR') ) {
 	$tables = array_merge( $tables, (array) apply_filters( 'tables_to_repair', array() ) ); // Return tables with table prefixes.
 	// Loop over the tables, checking and repairing as needed.
 	foreach ( $tables as $table ) {
-		$wpdb->query("ALTER TABLE {$table} CONVERT TO CHARACTER SET utf8 COLLATE utf8_unicode_ci;");
+		$wpdb->query("ALTER TABLE `{$table}` CONVERT TO CHARACTER SET utf8 COLLATE utf8_unicode_ci;");
 		
 		$check = $wpdb->get_row("CHECK TABLE {$table}");
 		if ( 'OK' == $check->Msg_text ) {
@@ -92,9 +92,9 @@ if ( !defined('WP_ALLOW_REPAIR') ) {
 	else
 		_e('WordPress can automatically look for some common database problems and repair them.  Repairing can take a while, so please be patient.')
 ?>
-	<p class="step"><a class="button" href="<?php echo wp_nonce_url('repair.php?repair=1', 'repair_db') ?>"><?php _e( 'Repair Database' ); ?></a></p>
+	<p class="step"><a class="button" href="<?php echo wp_nonce_url('fix-db-encoding.php?repair=1', 'repair_db') ?>"><?php _e( 'Repair Database' ); ?></a></p>
 	<?php _e('WordPress can also attempt to optimize the database.  This improves performance in some situations.  Repairing and optimizing the database can take a long time and the database will be locked while optimizing.'); ?>
-	<p class="step"><a class="button" href="<?php echo wp_nonce_url('repair.php?repair=2', 'repair_db') ?>"><?php _e( 'Repair and Optimize Database' ); ?></a></p>
+	<p class="step"><a class="button" href="<?php echo wp_nonce_url('fix-db-encoding.php?repair=2', 'repair_db') ?>"><?php _e( 'Repair and Optimize Database' ); ?></a></p>
 <?php
 }
 ?>

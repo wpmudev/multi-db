@@ -196,8 +196,6 @@ class m_wpdb extends wpdb {
 		$this->ready = true;
 
 		$this->select( $global['name'], $this->dbhglobal );
-		
-		add_filter('tables_to_repair', array(&$this, 'get_all_tables'), 10);
 	}
 
 	function get_global_read() {
@@ -525,6 +523,10 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match('/^\s*ALTER\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
+		} else if ( preg_match('/^\s*CHECK\s+TABLE\s+?(\w+)?\s*/is', $query, $maybe) ) {
+			$table_name = $maybe[1];
+		} else if ( preg_match('/^\s*ANALYZE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
+			$table_name = $maybe[1];
 		} else if ( preg_match('/^\s*SELECT.*?\s+FOUND_ROWS\(\)/is', $query) ) {
 			$table_name = $this->last_table;
 		} else {
@@ -700,10 +702,10 @@ class m_wpdb extends wpdb {
 	function get_all_tables($tables) {
 		global $db_servers;
 		
-		$blogs_ids = $wpdb->get_col("SELECT blog_id FROM {$this->base_prefix}blogs WHERE deleted = 0 AND spam = 0 AND archived = '0';");
+		$blogs_ids = $this->get_col("SELECT blog_id FROM {$this->base_prefix}blogs WHERE deleted = 0 AND spam = 0 AND archived = '0';");
 		
 		foreach ($blogs_ids as $blog_id) {
-			$new_tables = $wpdb->get_col("SHOW TABLES LIKE '{$this->base_prefix}_{$blog_id}_%';");
+			$new_tables = $this->get_col("SHOW TABLES LIKE '{$this->base_prefix}{$blog_id}_%';");
 			if ($new_tables && is_array($new_tables) && count($new_tables) > 0) {
 				$tables = array_merge($tables, $new_tables);
 			}
@@ -717,3 +719,4 @@ class m_wpdb extends wpdb {
 
 $wpdb = new m_wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
 
+add_filter('tables_to_repair', array(&$wpdb, 'get_all_tables'), 10);
