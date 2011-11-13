@@ -475,7 +475,7 @@ class m_wpdb extends wpdb {
 		$forcelocal = false;
 
 		//Table
-		If( substr( $query, -1 ) == ';' )
+		if( substr( $query, -1 ) == ';' )
 			$query = substr( $query, 0, -1 );
 		if ( preg_match('/^\s*SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe) ) {
 			$table_name = $maybe[1];
