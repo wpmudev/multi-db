@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: http://premium.wpmudev.org/project/multi-db
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
-Version: 3.1.1
+Version: 3.1.2
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -474,6 +474,47 @@ class m_wpdb extends wpdb {
 	}
 
 	/**
+	 * Sanitizes select query's table names by adding database prefixes.
+	 *
+	 * This function solves the issue when we have JOINs in a select query,
+	 * which connects global tables from global database. For instance:
+	 *
+	 * SELECT * FROM {$wpdb->posts} AS p LEFT JOIN {$wpdb->users} AS u ON u.ID = p.post_author WHERE p.ID = 2;
+	 *
+	 * @since 3.1.2
+	 * @filter query
+	 *
+	 * @access public
+	 * @global array $global_tables The array of globals tables.
+	 * @param string $query The initial query.
+	 * @return string Sanitized query.
+	 */
+	public function sanitize_multidb_query_tables( $query ) {
+		global $global_tables;
+
+		// don't touch non select queries.
+		if ( !preg_match( '/^SELECT\s+/is', rtrim( trim( $query ), ';' ) ) ) {
+			return $query;
+		}
+
+		$parts = preg_split( '/(FROM|WHERE)/i', $query, 3 );
+		if ( count( $parts ) == 1 ) {
+			return $query;
+		}
+
+		// look through all global tables and add global database prefix if it has been found
+		$global = $this->_get_global_read();
+		$prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
+		foreach ( $global_tables as $table ) {
+			$parts[1] = implode( " {$global['name']}.{$prefix}{$table} ", preg_split( "/\s{$prefix}{$table}\s/", $parts[1] ) );
+		}
+
+		return count( $parts ) == 3
+			? "{$parts[0]}FROM{$parts[1]}WHERE{$parts[2]}"
+			: "{$parts[0]}FROM{$parts[1]}";
+	}
+
+	/**
 	 * Performs a MySQL database query, using current database connection.
 	 *
 	 * @access public
@@ -493,15 +534,6 @@ class m_wpdb extends wpdb {
 		$return_val = 0;
 		$this->flush();
 
-		// Log how the function was called
-		$this->func_call = "\$db->query(\"$query\")";
-		// Keep track of the last query for debug..
-		$this->last_query = $query;
-
-		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
-			$this->timer_start();
-		}
-
 		// use $this->dbh for read ops, and $this->dbhwrite for write ops
 		// use $this->dbhglobal for gloal table ops
 		//unset( $dbh );
@@ -511,6 +543,15 @@ class m_wpdb extends wpdb {
 		if ( !is_resource( $dbh ) ) {
 			$this->_bail_db_connection_error();
 			return false;
+		}
+
+		// Log how the function was called
+		$this->func_call = '$db->query("' . $query . '")';
+		// Keep track of the last query for debug..
+		$this->last_query = $query;
+
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+			$this->timer_start();
 		}
 
 		$this->result = @mysql_query( $query, $dbh );
@@ -735,6 +776,7 @@ class m_wpdb extends wpdb {
 }
 
 // redefine database connection class
-$wpdb = new m_wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
+$wpdb = new m_wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
-add_filter( 'tables_to_repair', array( $wpdb, 'get_all_tables' ), 10 );
+add_filter( 'tables_to_repair', array( $wpdb, 'get_all_tables' ) );
+add_filter( 'query', array( $wpdb, 'sanitize_multidb_query_tables' ) );
