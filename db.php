@@ -257,8 +257,9 @@ class m_wpdb extends wpdb {
 
 		if ( is_array( $db_servers['global'] ) ) {
 			if ( count( $db_servers['global'] ) > 1 ) {
+				$dc = defined( 'DATACENTER' ) ? DATACENTER : false;
 				foreach ( $db_servers['global'] as $global ) {
-					if ( $global['dc'] == DATACENTER && $global['read'] > 0 ) {
+					if ( $global['dc'] == $dc && $global['read'] > 0 ) {
 						return $global;
 					}
 				}
@@ -345,7 +346,7 @@ class m_wpdb extends wpdb {
 		}
 
 		$dbh = false;
-		$query_data = $this->_analyze_query( $query );
+		$query_data = $this->analyze_query( $query );
 		$this->last_table = $query_data['table_name'];
 		$this->last_db_used = $query_data['query_type'];
 
@@ -385,6 +386,7 @@ class m_wpdb extends wpdb {
 
 		// Group eligible servers by R (plus 10,000 if remote)
 		$server_groups = array();
+		$dc = defined( 'DATACENTER' ) ? DATACENTER : false;
 		foreach ( $db_servers[$query_data['dataset']] as $server ) {
 			 // they don't want us to use this server for this operations
 			if ( $server[$operation] < 1 ) {
@@ -392,7 +394,7 @@ class m_wpdb extends wpdb {
 			}
 
 			// Add a penality to those dbs not in our datacenter
-			if ( $server['dc'] != DATACENTER ) {
+			if ( $server['dc'] != $dc ) {
 				$server[$operation] += 10000;
 			}
 
@@ -401,7 +403,7 @@ class m_wpdb extends wpdb {
 			}
 
 			// Try the local hostname first when connecting within the DC
-			if ( $server['dc'] == DATACENTER ) {
+			if ( $server['dc'] == $dc ) {
 				$lserver = $server;
 				$lserver['host'] = $lserver['lhost'];
 				$server_groups[$server[$operation] - 0.5][] = $lserver;
@@ -601,7 +603,7 @@ class m_wpdb extends wpdb {
 	/**
 	 * Returns connection information based on incoming query.
 	 *
-	 * @access private
+	 * @access public
 	 * @global type $original_table_prefix
 	 * @global type $global_tables
 	 * @global array $vip_blogs
@@ -609,7 +611,7 @@ class m_wpdb extends wpdb {
 	 * @param string $query The query string to analyze.
 	 * @return array The connection information array.
 	 */
-	private function _analyze_query ( $query ) {
+	public function analyze_query ( $query ) {
 		global $original_table_prefix, $global_tables, $vip_blogs, $vip_blogs_datasets;
 
 		// trim query
