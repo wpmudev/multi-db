@@ -621,23 +621,25 @@ class m_wpdb extends wpdb {
 
 		$maybe = array();
 		$table_name = 'unknown';
-		if ( preg_match( '/^\s*SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		if ( preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*UPDATE IGNORE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE IGNORE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*UPDATE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*INSERT INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*INSERT IGNORE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*DELETE\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^DELETE\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*(?:TRUNCATE|RENAME|OPTIMIZE|LOCK|UNLOCK)\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^(?:TRUNCATE|RENAME|OPTIMIZE|LOCK|UNLOCK)\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+			$table_name = $maybe[1];
+		} else if ( preg_match( '/^(?:TRUNCATE|RENAME|OPTIMIZE|LOCK|UNLOCK)\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^SHOW TABLE STATUS (LIKE|FROM) \'?`?(\w+)\'?`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
@@ -649,27 +651,27 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^SHOW\s+\w*\s*COLUMNS (?:FROM|IN) `?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*SHOW CREATE TABLE `?(\w+?)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^SHOW CREATE TABLE `?(\w+?)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^SHOW CREATE TABLE (wp_[a-z0-9_]+)/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*CREATE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^CREATE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^DROP\s+TABLE\s+IF\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*DROP\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^DROP\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*DESCRIBE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^DESCRIBE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*ALTER\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^ALTER\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*CHECK\s+TABLE\s+?(\w+)?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^CHECK\s+TABLE\s+?(\w+)?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*ANALYZE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^ANALYZE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^\s*SELECT.*?\s+FOUND_ROWS\(\)/is', $query ) ) {
+		} else if ( preg_match( '/^SELECT.*?\s+FOUND_ROWS\(\)/is', $query ) ) {
 			$table_name = $this->last_table;
 		}
 
@@ -711,6 +713,7 @@ class m_wpdb extends wpdb {
 			'/^OPTIMIZE/is',
 			'/^SHOW\s+TABLE\s+STATUS/is',
 			'/^CREATE\s+TABLE/is',
+			'/^TRUNCATE\s+TABLE/is',
 			'/^SHOW\s+CREATE\s+TABLE/is',
 			'/^DROP\s+TABLE/is',
 			'/^ALTER\s+TABLE/is',
