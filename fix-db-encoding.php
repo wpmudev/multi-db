@@ -1,13 +1,13 @@
 <?php
 /*
-Plugin Name: Fix DB Encoding (Multi-DB)
-Plugin URI: http://premium.wpmudev.org/project/multi-db
+Multi-DB plugin's database encoding fix tool
+Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
 Description:
 Author: S H Mohanjith (Incsub)
 Version: 1.0.1
 Author URI: http://mohanjith.com/
 Description: This script tries to change the DB encoding to utf8. Use this script at your own risk.  My test setup uses php 5, mysql 5, and wordpress mu 1.2.5a
-*/ 
+*/
 
 define('WP_REPAIRING', true);
 
@@ -31,7 +31,7 @@ if ( !defined('WP_ALLOW_REPAIR') ) {
         echo '<p>'.__('To allow use of this page to automatically repair database encoding problems and other commeon DB problems, please add the following line to your wp-config.php file. Once this line is added to your config, reload this page.')."</p><code>define('WP_ALLOW_REPAIR', true);</code>";
 } elseif ( isset($_GET['repair']) ) {
         $problems = array();
-	
+
 	if ( 2 == $_GET['repair'] )
 		$optimize = true;
 	else
@@ -51,7 +51,7 @@ if ( !defined('WP_ALLOW_REPAIR') ) {
 		} else {
 			$cols = $wpdb->get_results("SHOW FULL COLUMNS FROM `{$table}` WHERE (Type IN ('CHAR', 'TEXT', 'TINYTEXT', 'MEDIUMTEXT', 'LONGTEXT') OR Type LIKE  'VARCHAR%') AND Collation NOT LIKE 'utf8%';");
 		}
-		
+
 		if (is_array($cols) && count($cols) > 0) {
 			foreach ($cols as $col) {
 				if ($_GET['fix_100']) {
@@ -80,9 +80,9 @@ if ( !defined('WP_ALLOW_REPAIR') ) {
 				$wpdb->query("ALTER TABLE `{$table}` CHANGE {$col->Field} {$col->Field} {$col->Type};");
 			}
 		}
-		
+
 		$wpdb->query("ALTER TABLE `{$table}` CONVERT TO CHARACTER SET utf8 COLLATE utf8_general_ci;");
-		
+
 		$check = $wpdb->get_row("CHECK TABLE {$table}");
 		if ( 'OK' == $check->Msg_text ) {
 			echo "<p>The $table table is okay.";

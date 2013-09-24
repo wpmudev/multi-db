@@ -1,6 +1,6 @@
 <?php
-//	Plugin Name: Multi-DB
-//	Plugin URI: http://premium.wpmudev.org/project/Multiple-Databases
+//	Multi-DB plugin's database configuration file
+//	Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
 //	Author: Andrew Billits (Incsub), S H Mohanjith (Incsub)
 //  Version: 2.9.2
 //------------------------------------------------------------------------//

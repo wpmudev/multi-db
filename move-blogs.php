@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: Multi-DB (Conversion Tool)
-Plugin URI: http://premium.wpmudev.org/project/Multiple-Databases
+Multi-DB plugin's database conversion tool
+Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
 Description:
 Author: Ron Dillehay - FanMail to rdillehay@hotmail.com (no tech support please) - Modified slightly by Andrew Billits (Incsub)
 Version: 2.9.2
@@ -9,7 +9,7 @@ Author URI:
 Descriptiom:
 This script is to move blogs from a wordpress mu single database setup, to a wordpress mu multiple database setup using an MD5 hash to establish blog routing
 Use this script at your own risk.  My test setup uses php 5, mysql 5, and wordpress mu 1.2.5a
-*/ 
+*/
 
 //------------------------------------------------------------------------//
 //---Config---------------------------------------------------------------//
@@ -25,7 +25,7 @@ $dbhost = 'localhost';
 $dbuname = 'user';
 $dbpass = 'pass';
 
-//How many db's are you moving into (16, 256, or 4096)? 
+//How many db's are you moving into (16, 256, or 4096)?
 $db_scaling = '256';
 
 //------------------------------------------------------------------------//
@@ -38,14 +38,14 @@ $db_scaling = '256';
 <title>Multiple Databases Conversion Tool</title>
 <head>
 <style type="text/css">
-table.stats 
+table.stats
 {text-align: center; font-family: Verdana, Geneva, Arial, Helvetica, sans-serif ; font-weight: normal;font-size: 12px;color: #fff;width: 750px;background-color: #666;border: 1px solid #555;border-collapse: collapse;border-spacing: 1px;}
-table.stats td 
+table.stats td
 {background-color: #CCC;color: #000;padding: 6px;text-align: left;border: 1px #fff solid;}
 table.stats td.head
 {background-color: #666;color: #fff;padding: 6px;text-align: center;border-bottom: 2px #fff solid;font-size: 12px;font-weight: bold;}
 </style>
-</head> 
+</head>
 
 <?php
 
@@ -91,7 +91,7 @@ echo "<table align='center' class='stats'><tr><td colspan='4' align='center'><br
 while ($row = mysql_fetch_row($result)) {
 
 	//Here we find our blog id, hash it, and establish our new db names
-	$blogid_get = explode("_", $row[0]); 
+	$blogid_get = explode("_", $row[0]);
 	$blogid = $blogid_get[1];
 	$md5_hash = md5($blogid);
 	$md5_dbprefix = substr($md5_hash, 0, $newdbsize);
@@ -108,12 +108,12 @@ while ($row = mysql_fetch_row($result)) {
 		$this_blog_new_db = $newdb_prefix."_global";
 	}
 	*/
-	$db = mysql_connect($dbhost, $dbuname, $dbpass) or die("Houston, we have a problem! <br />Database Error: ".mysql_error()); 
+	$db = mysql_connect($dbhost, $dbuname, $dbpass) or die("Houston, we have a problem! <br />Database Error: ".mysql_error());
 	mysql_select_db($this_blog_new_db, $db) or die("Houston, we have a problem! <br /><b> Looks like you need to create your new db's!   If you're lucky, this link still works - <a href='http://calc.idtstudios.com/db.php'>click me</a> </b><br />Database Error: ".mysql_error());
 	if( mysql_num_rows( mysql_query("SHOW TABLES LIKE '".$row[0]."'"))) { $tabletest = "<font color='green'>table in new db</font>"; } else { $tabletest = "table not in new db"; }
 
 	//Filter out the nonblog tables
-	if ( is_numeric($blogid) ) { 
+	if ( is_numeric($blogid) ) {
 		//Next we check to see if we are actually moving anything yet
 		if ($tabletomove != "") {
 			//This is where the heavy lifting is done - amazing only four lines of code can save so much time! Tested on php 5 - mysql 5
