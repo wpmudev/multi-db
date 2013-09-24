@@ -32,6 +32,8 @@ http://php.justinvincent.com
 // | MA 02110-1301 USA                                                    |
 // +----------------------------------------------------------------------+
 
+define( 'MULTIDB_VERSION', '3.1.3' );
+
 global $wpdb, $table_prefix;
 global $original_table_prefix, $db_servers, $global_tables, $vip_blogs, $vip_blogs_datasets, $dc_ips;
 
@@ -178,6 +180,14 @@ class m_wpdb extends wpdb {
 
 	var $dbh;	// will now always hold the global database
 	var $dbhglobal;
+
+	/**
+	 * The array containing the last query data received from analyze_query method.
+	 *
+	 * @access protected
+	 * @var array
+	 */
+	protected $_last_query_data;
 
 	/**
 	 * Connects to the database server and selects a database
@@ -346,7 +356,7 @@ class m_wpdb extends wpdb {
 		}
 
 		$dbh = false;
-		$query_data = $this->analyze_query( $query );
+		$this->_last_query_data = $query_data = $this->analyze_query( $query );
 		$this->last_table = $query_data['table_name'];
 		$this->last_db_used = $query_data['query_type'];
 
@@ -405,7 +415,9 @@ class m_wpdb extends wpdb {
 			// Try the local hostname first when connecting within the DC
 			if ( $server['dc'] == $dc ) {
 				$lserver = $server;
-				$lserver['host'] = $lserver['lhost'];
+				if ( isset( $lserver['lhost'] ) ) {
+					$lserver['host'] = $lserver['lhost'];
+				}
 				$server_groups[$server[$operation] - 0.5][] = $lserver;
 			}
 
@@ -431,16 +443,18 @@ class m_wpdb extends wpdb {
 			$this->set_charset( $dbh );
 
 			if ( is_resource( $dbh ) )  {
-				$this->dbh_connections[ $query_data['dataset'] ]['connection'] = $dbh;
-				$this->dbh_connections[ $query_data['dataset'] ]['name'] = $server['name'];
-				$this->dbh_connections[ $query_data['dataset'] ]['ds'] = $server['ds'];
-				$this->dbh_connections[ $query_data['dataset'] ]['dc'] = $server['dc'];
-				$this->dbh_connections[ $query_data['dataset'] ]['read'] = $server['read'];
-				$this->dbh_connections[ $query_data['dataset'] ]['write'] = $server['write'];
-				$this->dbh_connections[ $query_data['dataset'] ]['host'] = $server['host'];
-				$this->dbh_connections[ $query_data['dataset'] ]['user'] = $server['user'];
-				$this->dbh_connections[ $query_data['dataset'] ]['password'] = $server['password'];
-				$this->dbh_connections[ $query_data['dataset'] ]['lhost'] = $server['lhost'];
+				$this->dbh_connections[$query_data['dataset']] = array(
+					'connection' => $dbh,
+					'name'       => $server['name'],
+					'ds'         => $server['ds'],
+					'dc'         => $server['dc'],
+					'read'       => $server['read'],
+					'write'      => $server['write'],
+					'host'       => $server['host'],
+					'user'       => $server['user'],
+					'password'   => $server['password'],
+					'lhost'      => isset( $server['lhost'] ) ? $server['lhost'] : '',
+				);
 
 				$dbhname = $server['name'];
 				$this->open_connections[] = $query_data['dataset'];
@@ -469,7 +483,7 @@ class m_wpdb extends wpdb {
 			unset( $this->open_connections[$k] );
 		}
 
-		if ( is_resource( $this->dbh_connections[$dbhname]['connection'] ) ) {
+		if ( isset( $this->dbh_connections[$dbhname]['connection'] ) && is_resource( $this->dbh_connections[$dbhname]['connection'] ) ) {
 			mysql_close( $this->dbh_connections[$dbhname]['connection'] );
 			unset( $this->dbh_connections[$dbhname] );
 		}
@@ -611,7 +625,7 @@ class m_wpdb extends wpdb {
 	 * @param string $query The query string to analyze.
 	 * @return array The connection information array.
 	 */
-	public function analyze_query ( $query ) {
+	public function analyze_query( $query ) {
 		global $original_table_prefix, $global_tables, $vip_blogs, $vip_blogs_datasets;
 
 		// trim query
@@ -619,21 +633,19 @@ class m_wpdb extends wpdb {
 		// Set initial force local stuff.
 		$forcelocal = false;
 
-		$maybe = array();
+		$maybe = $return = array();
 		$table_name = 'unknown';
 		if ( preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^UPDATE IGNORE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE IGNORE\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
-			$table_name = $maybe[1];
-		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^DELETE\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
@@ -651,7 +663,7 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^SHOW\s+\w*\s*COLUMNS (?:FROM|IN) `?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^SHOW CREATE TABLE `?(\w+?)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
@@ -665,14 +677,16 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^DESCRIBE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^ALTER\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^ALTER\s+TABLE\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^CHECK\s+TABLE\s+?(\w+)?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^ANALYZE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^SELECT.*?\s+FOUND_ROWS\(\)/is', $query ) ) {
-			$table_name = $this->last_table;
+		} else if ( preg_match( '/^SELECT\s+/is', $query ) && !preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query ) ) {
+			if ( $this->_last_query_data ) {
+				return $this->_last_query_data;
+			}
 		}
 
 		// determine whether global or blog table type is
@@ -697,7 +711,7 @@ class m_wpdb extends wpdb {
 					$base_table_name = str_replace( $base_match[0], '', $base_table_name );
 				}
 
-				if ( preg_match( "|{$original_table_prefix}[0-9]{1,20}_?{$base_table_name}|", $match, $match ) == true ) {
+				if ( preg_match( "|{$original_table_prefix}[0-9]{1,20}_?{$base_table_name}|", $match, $match ) ) {
 					$blog_id = str_replace( $original_table_prefix, '', $match[0] );
 					$blog_id = str_replace( '_' . $base_table_name, '', $blog_id );
 				}
