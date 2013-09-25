@@ -683,9 +683,14 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^ANALYZE\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^SELECT\s+/is', $query ) && !preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query ) ) {
-			if ( $this->_last_query_data ) {
-				return $this->_last_query_data;
+		} else {
+			$select_without_from = preg_match( '/^SELECT\s+/is', $query ) && !preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query );
+			$transaction_stuff = preg_match( '/^(START TRANSACTION|BEGIN|COMMIT|ROLLBACK)/is', $query );
+			$set = preg_match( '/^SET\s+/is', $query );
+			if ( $select_without_from || $transaction_stuff || $set ) {
+				if ( $this->_last_query_data ) {
+					return $this->_last_query_data;
+				}
 			}
 		}
 
