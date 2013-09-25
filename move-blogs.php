@@ -121,8 +121,6 @@ while ($row = mysql_fetch_row($result)) {
 			$insert_info = "INSERT INTO $row[0] SELECT * FROM $dbname.$row[0]";
 			mysql_query($sql_table);
 			mysql_query($insert_info);
-			mysql_free_result($sql_table);
-			mysql_free_result($insert_info);
 		}
 
 		//Close the db and report db status
@@ -137,8 +135,6 @@ while ($row = mysql_fetch_row($result)) {
 			$insert_info = "INSERT INTO $row[0] SELECT * FROM $dbname.$row[0]";
 			mysql_query($sql_table);
 			mysql_query($insert_info);
-			mysql_free_result($sql_table);
-			mysql_free_result($insert_info);
 		}
 		//Close the db and report db status
 		mysql_close($db); $testpass = "<font color='green'>&nbsp;exists</font>";
