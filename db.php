@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: http://premium.wpmudev.org/project/multi-db
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
-Version: 3.1.4
+Version: 3.1.6
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -32,7 +32,7 @@ http://php.justinvincent.com
 // | MA 02110-1301 USA                                                    |
 // +----------------------------------------------------------------------+
 
-define( 'MULTIDB_VERSION', '3.1.3' );
+define( 'MULTIDB_VERSION', '3.1.6' );
 
 global $wpdb, $table_prefix;
 global $original_table_prefix, $db_servers, $global_tables, $vip_blogs, $vip_blogs_datasets, $dc_ips;
