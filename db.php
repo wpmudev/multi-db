@@ -513,21 +513,30 @@ class m_wpdb extends wpdb {
 			return $query;
 		}
 
-		$parts = preg_split( '/(FROM|WHERE)/i', $query, 3 );
-		if ( count( $parts ) == 1 ) {
-			return $query;
-		}
-
-		// look through all global tables and add global database prefix if it has been found
 		$global = $this->_get_global_read();
 		$prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
-		foreach ( $global_tables as $table ) {
-			$parts[1] = implode( " {$global['name']}.{$prefix}{$table} ", preg_split( "/\s{$prefix}{$table}\s/", $parts[1] ) );
+
+		// split selects by UNION keyword
+		$queries = preg_split( '/\sUNION\s/is', $query );
+		foreach ( $queries as $i => $q ) {
+			// split the query by FROM and WHERE keywords
+			$parts = preg_split( '/\s(FROM|WHERE)\s/i', $q, 3 );
+			if ( count( $parts ) == 1 ) {
+				continue;
+			}
+
+			// look through all global tables and add global database prefix if it has been found
+			foreach ( $global_tables as $table ) {
+				$parts[1] = implode( " {$global['name']}.{$prefix}{$table} ", preg_split( "/\s{$prefix}{$table}\s/", $parts[1] ) );
+			}
+
+			// build a query back
+			$queries[$i] = count( $parts ) == 3
+				? "{$parts[0]} FROM {$parts[1]} WHERE {$parts[2]}"
+				: "{$parts[0]} FROM {$parts[1]}";
 		}
 
-		return count( $parts ) == 3
-			? "{$parts[0]}FROM{$parts[1]}WHERE{$parts[2]}"
-			: "{$parts[0]}FROM{$parts[1]}";
+		return implode( ' UNION ', $queries );
 	}
 
 	/**
