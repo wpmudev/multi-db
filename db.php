@@ -508,35 +508,23 @@ class m_wpdb extends wpdb {
 	public function sanitize_multidb_query_tables( $query ) {
 		global $global_tables;
 
+		// add whitespace at the end of the query to make our patterns working properly
+		$query = trim( $query ) . ' ';
+
 		// don't touch non select queries.
-		if ( !preg_match( '/^SELECT\s+/is', rtrim( trim( $query ), ';' ) ) ) {
+		if ( !preg_match( '/^SELECT\s+/is', $query ) ) {
 			return $query;
 		}
 
 		$global = $this->_get_global_read();
 		$prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
 
-		// split selects by UNION keyword
-		$queries = preg_split( '/\sUNION\s/is', $query );
-		foreach ( $queries as $i => $q ) {
-			// split the query by FROM and WHERE keywords
-			$parts = preg_split( '/\s(FROM|WHERE)\s/i', $q, 3 );
-			if ( count( $parts ) == 1 ) {
-				continue;
-			}
-
-			// look through all global tables and add global database prefix if it has been found
-			foreach ( $global_tables as $table ) {
-				$parts[1] = implode( " {$global['name']}.{$prefix}{$table} ", preg_split( "/\s{$prefix}{$table}\s/", $parts[1] ) );
-			}
-
-			// build a query back
-			$queries[$i] = count( $parts ) == 3
-				? "{$parts[0]} FROM {$parts[1]} WHERE {$parts[2]}"
-				: "{$parts[0]} FROM {$parts[1]}";
+		// look through all global tables and add global database prefix if it has been found
+		foreach ( $global_tables as $table ) {
+			$query = preg_replace( "/\s{$prefix}{$table}(\s|\.|,)/", " {$global['name']}.{$prefix}{$table}$1", $query );
 		}
 
-		return implode( ' UNION ', $queries );
+		return trim( $query );
 	}
 
 	/**
@@ -646,15 +634,15 @@ class m_wpdb extends wpdb {
 		$table_name = 'unknown';
 		if ( preg_match( '/^SELECT.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^UPDATE IGNORE\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE IGNORE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s+/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^DELETE\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
