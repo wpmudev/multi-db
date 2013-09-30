@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: http://premium.wpmudev.org/project/multi-db
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
-Version: 3.1.6
+Version: 3.2.0
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -31,8 +31,6 @@ http://php.justinvincent.com
 // | Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,               |
 // | MA 02110-1301 USA                                                    |
 // +----------------------------------------------------------------------+
-
-define( 'MULTIDB_VERSION', '3.1.6' );
 
 global $wpdb, $table_prefix;
 global $original_table_prefix, $db_servers, $global_tables, $vip_blogs, $vip_blogs_datasets, $dc_ips;
@@ -157,7 +155,7 @@ if ( file_exists( WP_CONTENT_DIR . '/db-list.php' ) ) {
 $wpdb = 'we-need-to-pre-populate-this-variable';
 require_once ABSPATH . WPINC . '/wp-db.php';
 
-if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '2.9.2' );
+if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '3.2.0' );
 if ( !defined( 'WP_USE_MULTIPLE_DB' ) ) define( 'WP_USE_MULTIPLE_DB', false );
 if ( !defined( 'DB_SCALING' ) )         define( 'DB_SCALING', '16' );
 if ( !defined( 'SAVEQUERIES' ) )        define( 'SAVEQUERIES', false );
@@ -172,13 +170,36 @@ if ( !defined( 'ARRAY_N' ) )            define( 'ARRAY_N', 'ARRAY_N', false );
  */
 class m_wpdb extends wpdb {
 
+	/**
+	 * The array of open connections.
+	 *
+	 * @access protected
+	 * @var array
+	 */
 	var $dbh_connections = array();
-	var $open_connections = array();
+
+	/**
+	 * The maximum number of open connections.
+	 *
+	 * @access protected
+	 * @var type
+	 */
 	var $max_connections = 10;
 
-	var $srtm = false;
+	/**
+	 * Current database handle
+	 *
+	 * @access protected
+	 * @var resource
+	 */
+	var $dbh;
 
-	var $dbh;	// will now always hold the global database
+	/**
+	 * Global database handle
+	 *
+	 * @access protected
+	 * @var resource
+	 */
 	var $dbhglobal;
 
 	/**
@@ -199,28 +220,18 @@ class m_wpdb extends wpdb {
 	 * @param string $dbhost MySQL database host
 	 */
 	public function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
-		register_shutdown_function( array( &$this, '__destruct' ) );
+		register_shutdown_function( array( $this, '__destruct' ) );
 
-		if ( WP_DEBUG ) {
+		if ( WP_DEBUG && WP_DEBUG_DISPLAY ) {
 			$this->show_errors();
 		}
 
-		if ( is_multisite() ) {
-			$this->charset = 'utf8';
-			if ( defined( 'DB_COLLATE' ) && DB_COLLATE ) {
-				$this->collate = DB_COLLATE;
-			} else {
-				$this->collate = 'utf8_general_ci';
-			}
-		} elseif ( defined( 'DB_COLLATE' ) ) {
-			$this->collate = DB_COLLATE;
-		}
-
-		if ( defined( 'DB_CHARSET' ) ) {
-			$this->charset = DB_CHARSET;
-		}
+		$this->init_charset();
 
 		$this->dbuser = $dbuser;
+		$this->dbpassword = $dbpassword;
+		$this->dbname = $dbname;
+		$this->dbhost = $dbhost;
 
 		// Try to connect to the database
 		$global = $this->_get_global_read();
@@ -241,9 +252,10 @@ class m_wpdb extends wpdb {
 	 * Will not die if wpdb::$show_errors is false.
 	 *
 	 * @access private
+	 * @return false|void
 	 */
 	private function _bail_db_connection_error() {
-		$this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
+		return $this->bail( sprintf( /*WP_I18N_DB_CONN_ERROR*/"
 			<h1>Error finding a global database</h1>
 			<p>This either means that the username and password information in your <code>db-config.php</code> file is incorrect, you haven't declared a global database or we can't contact the global database server. This could mean your host's database server is down.</p>
 			<ul>
@@ -344,13 +356,10 @@ class m_wpdb extends wpdb {
 	 * Connects to database based on incoming query.
 	 *
 	 * @access public
-	 * @global array $db_servers The array of database servers.
 	 * @param string $query The query which will be executed.
 	 * @return boolean|resource The database connection resource on success, otherwise FALSE.
 	 */
 	public function db_connect( $query = 'SELECT 1' ) {
-		global $db_servers;
-
 		if ( empty( $query ) ) {
 			return false;
 		}
@@ -360,14 +369,7 @@ class m_wpdb extends wpdb {
 		$this->last_table = $query_data['table_name'];
 		$this->last_db_used = $query_data['query_type'];
 
-		// Send reads to the master for a few seconds after a write to user db or global db.
-		// This ought to help with accidental post regressions and other replication issues.
-		if ( $query_data['query_type'] == 'write' ) {
-			$this->srtm = true;
-			$operation = 'write';
-		} else {
-			$operation = 'read';
-		}
+		$operation = $query_data['query_type'] == 'write' ? 'write' : 'read';
 
 		// Return a global read database as if already have it connected
 		if ( $operation == 'read' && $query_data['dataset'] == 'global' && is_resource( $this->dbhglobal ) ) {
@@ -379,97 +381,19 @@ class m_wpdb extends wpdb {
 		}
 
 		// check if we're already connected.
-		if ( isset( $this->dbh_connections[$query_data['dataset']] ) && is_resource( $this->dbh_connections[$query_data['dataset']]['connection'] ) && $this->dbh_connections[$query_data['dataset']][$operation] > 0 ) {
-			// Found one we can use - hoorah
-			$dbh =& $this->dbh_connections[$query_data['dataset']]['connection'];
-			$this->select( $this->dbh_connections[$query_data['dataset']]['name'], $dbh );
-
-			// reset the connections
-			if ( ( $k = array_search( $query_data['dataset'], $this->open_connections ) ) ) {
-				unset( $this->open_connections[$k] );
-				$this->open_connections[] = $query_data['dataset'];
-			}
-
-			// all done for now - off we go
-			return $dbh;
+		$dataset_key = "{$query_data['dataset']}.{$operation}";
+		if ( isset( $this->dbh_connections[$dataset_key] ) && is_resource( $this->dbh_connections[$dataset_key]['connection'] ) ) {
+			return $this->dbh_connections[$dataset_key]['connection'];
 		}
 
-		// Group eligible servers by R (plus 10,000 if remote)
-		$server_groups = array();
-		$dc = defined( 'DATACENTER' ) ? DATACENTER : false;
-		foreach ( $db_servers[$query_data['dataset']] as $server ) {
-			 // they don't want us to use this server for this operations
-			if ( $server[$operation] < 1 ) {
-				continue;
-			}
-
-			// Add a penality to those dbs not in our datacenter
-			if ( $server['dc'] != $dc ) {
-				$server[$operation] += 10000;
-			}
-
-			if ( isset( $_server ) && is_array( $_server ) ) {
-				$server = array_merge( $server, $_server );
-			}
-
-			// Try the local hostname first when connecting within the DC
-			if ( $server['dc'] == $dc ) {
-				$lserver = $server;
-				if ( isset( $lserver['lhost'] ) ) {
-					$lserver['host'] = $lserver['lhost'];
-				}
-				$server_groups[$server[$operation] - 0.5][] = $lserver;
-			}
-
-			$server_groups[$server[$operation]][] = $server;
-		}
-
-		// Randomize each group and add its members to
-		$servers = array();
-		ksort( $server_groups );
-		foreach ( $server_groups as $group ) {
-			if ( count( $group ) > 1 ) {
-				shuffle( $group );
-			}
-
-			$servers = array_merge( $servers, $group );
-		}
-
-		foreach ( $servers as $server ) {
-			// Connect to a database server
-			$dbh = @mysql_connect( $server['host'], $server['user'], $server['password'] );
-
-			// For every new connection we should set the character set
-			$this->set_charset( $dbh );
-
-			if ( is_resource( $dbh ) )  {
-				$this->dbh_connections[$query_data['dataset']] = array(
-					'connection' => $dbh,
-					'name'       => $server['name'],
-					'ds'         => $server['ds'],
-					'dc'         => $server['dc'],
-					'read'       => $server['read'],
-					'write'      => $server['write'],
-					'host'       => $server['host'],
-					'user'       => $server['user'],
-					'password'   => $server['password'],
-					'lhost'      => isset( $server['lhost'] ) ? $server['lhost'] : '',
-				);
-
-				$dbhname = $server['name'];
-				$this->open_connections[] = $query_data['dataset'];
-				break;
+		foreach ( self::_get_servers( $query_data['dataset'], $operation ) as $server ) {
+			if ( ( $dbh = $this->_connect_to_server( $server, $query_data['dataset'], $operation ) ) ) {
+				return $dbh;
 			}
 		}
 
-		if ( !is_resource( $dbh ) ) {
-			$this->_bail_db_connection_error();
-			return false;
-		}
-
-		$this->select( $dbhname, $dbh );
-
-		return $dbh;
+		$this->_bail_db_connection_error();
+		return false;
 	}
 
 	/**
@@ -479,12 +403,8 @@ class m_wpdb extends wpdb {
 	 * @param string $dbhname The database name to close connection to.
 	 */
 	public function disconnect( $dbhname ) {
-		if ( ( $k = array_search( $dbhname, $this->open_connections ) ) ) {
-			unset( $this->open_connections[$k] );
-		}
-
 		if ( isset( $this->dbh_connections[$dbhname]['connection'] ) && is_resource( $this->dbh_connections[$dbhname]['connection'] ) ) {
-			mysql_close( $this->dbh_connections[$dbhname]['connection'] );
+			@mysql_close( $this->dbh_connections[$dbhname]['connection'] );
 			unset( $this->dbh_connections[$dbhname] );
 		}
 	}
@@ -575,8 +495,8 @@ class m_wpdb extends wpdb {
 		}
 
 		// If there is an error then take note of it..
-		if ( is_resource( $dbh ) && $this->last_error = mysql_error( $dbh ) ) {
-			$this->print_error();
+		if ( is_resource( $dbh ) && ( $this->last_error = mysql_error( $dbh ) ) ) {
+			$this->print_error( $this->last_error );
 			return false;
 		}
 
@@ -638,13 +558,11 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^UPDATE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^INSERT.*?\s+INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^REPLACE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^REPLACE.*?\s+INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^INSERT IGNORE INTO\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
-			$table_name = $maybe[1];
-		} else if ( preg_match( '/^DELETE\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
+		} else if ( preg_match( '/^DELETE.*?\s+FROM\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^(?:TRUNCATE|RENAME|OPTIMIZE|LOCK|UNLOCK)\s+TABLE\s+`?(\w+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
@@ -759,19 +677,7 @@ class m_wpdb extends wpdb {
 					$blog_id = 'global';
 					$dataset = 'global';
 				} else {
-					$hash_value = md5( $blog_id );
-					switch ( (int)constant( 'DB_SCALING' ) ) {
-						case 4096:
-							$dataset = substr( $hash_value, 0, 3 );
-							break;
-						case 256:
-							$dataset = substr( $hash_value, 0, 2 );
-							break;
-						case 16:
-						default:
-							$dataset = substr( $hash_value, 0, 1 );
-							break;
-					}
+					$dataset = self::_get_blog_dataset( $blog_id );
 				}
 			}
 		}
@@ -786,12 +692,163 @@ class m_wpdb extends wpdb {
 	}
 
 	/**
-	 * Sets reads to masters.
+	 * Returns blog dataset.
+	 *
+	 * @since 3.2.0
+	 *
+	 * @static
+	 * @access protected
+	 * @param int $blog_id The blog ID.
+	 * @return string The dataset string.
+	 */
+	protected static function _get_blog_dataset( $blog_id ) {
+		$hash_value = md5( $blog_id );
+		if ( defined( 'DB_SCALING' ) ) {
+			if ( DB_SCALING == 4096 ) {
+				return substr( $hash_value, 0, 3 );
+			} elseif ( DB_SCALING == 256 ) {
+				return substr( $hash_value, 0, 2 );
+			}
+		}
+
+		return substr( $hash_value, 0, 1 );
+	}
+
+	/**
+	 * Returns the array of appropriate servers to connect to.
+	 *
+	 * @since 3.2.0
+	 *
+	 * @static
+	 * @access protected
+	 * @global array $db_servers The array of database servers.
+	 * @param string $dataset The current dataset to use.
+	 * @param string $operation The operation type (read/write).
+	 * @return array The array of servers to connect to.
+	 */
+	protected static function _get_servers( $dataset, $operation ) {
+		global $db_servers;
+
+		$dc = defined( 'DATACENTER' ) ? DATACENTER : false;
+
+		// Group eligible servers by R (plus 10,000 if remote)
+		$server_groups = array();
+		if ( isset( $db_servers[$dataset] ) ) {
+			foreach ( $db_servers[$dataset] as $server ) {
+				if ( $server[$operation] ) {
+					// Add a penality to those dbs not in our datacenter
+					if ( $server['dc'] != $dc ) {
+						$server[$operation] += 10000;
+					}
+
+					// Try the local hostname first when connecting within the DC
+					if ( $server['dc'] == $dc ) {
+						$lserver = $server;
+						if ( isset( $lserver['lhost'] ) ) {
+							$lserver['host'] = $lserver['lhost'];
+						}
+
+						$priority = $server[$operation] - 0.5;
+						$server_groups["{$priority}"][] = $lserver;
+					}
+
+					$priority = $server[$operation];
+					$server_groups["{$priority}"][] = $server;
+				}
+			}
+		}
+
+		// Randomize each group and add its members to
+		$servers = array();
+		ksort( $server_groups );
+		foreach ( $server_groups as $group ) {
+			if ( count( $group ) > 1 ) {
+				shuffle( $group );
+			}
+
+			$servers = array_merge( $servers, $group );
+		}
+
+		return $servers;
+	}
+
+	/**
+	 * Connects to the server.
+	 *
+	 * @since 3.2.0
+	 *
+	 * @access protected
+	 * @param array $server The server configuration info.
+	 * @param string $dataset The current dataset to use.
+	 * @param string $operation The operation type (read/write).
+	 * @return resource|boolean The MySQL connection on success, otherwise FALSE.
+	 */
+	protected function _connect_to_server( $server, $dataset, $operation ) {
+		$dbh = @mysql_connect( $server['host'], $server['user'], $server['password'], true );
+		if ( !is_resource( $dbh ) )  {
+			return false;
+		}
+
+		$this->set_charset( $dbh );
+		$this->select( $server['name'], $dbh );
+
+		// save connection
+		$this->dbh_connections["{$dataset}.{$operation}"] = array(
+			'connection' => $dbh,
+			'name'       => $server['name'],
+			'ds'         => $server['ds'],
+			'dc'         => $server['dc'],
+			'read'       => $server['read'],
+			'write'      => $server['write'],
+			'host'       => $server['host'],
+			'user'       => $server['user'],
+			'password'   => $server['password'],
+			'lhost'      => isset( $server['lhost'] ) ? $server['lhost'] : '',
+		);
+
+		// disconnect old connection if total number of connections more then allowed one
+		while ( $this->max_connections > 0 && count( $this->dbh_connections ) > $this->max_connections ) {
+			reset( $this->dbh_connections );
+			$this->disconnect( key( $this->dbh_connections ) );
+		}
+
+		return $dbh;
+	}
+
+	/**
+	 * Sets blog id.
+	 *
+	 * @since 3.2.0
 	 *
 	 * @access public
+	 * @param int $blog_id
+	 * @param int $site_id Optional.
+	 * @return string previous blog id
 	 */
-	public function send_reads_to_masters() {
-		$this->srtm = true;
+	public function set_blog_id( $blog_id, $site_id = 0 ) {
+		$old_blog_id = parent::set_blog_id( $blog_id, $site_id );
+		if ( $old_blog_id == $blog_id ) {
+			return $old_blog_id;
+		}
+
+		$dataset = self::_get_blog_dataset( $blog_id );
+		foreach ( array( 'write', 'read' ) as $operation ) {
+			$dataset_key = "{$dataset}.{$operation}";
+			if ( !isset( $this->dbh_connections[$dataset_key] ) || !is_resource( $this->dbh_connections[$dataset_key]['connection'] ) ) {
+				foreach ( self::_get_servers( $dataset, $operation ) as $server ) {
+					if ( $this->_connect_to_server( $server, $dataset, $operation ) ) {
+						break;
+					}
+				}
+			} else {
+				// move connection to the end
+				$connection = $this->dbh_connections[$dataset_key];
+				unset( $this->dbh_connections[$dataset_key] );
+				$this->dbh_connections[$dataset_key] = $connection;
+			}
+		}
+
+		return $old_blog_id;
 	}
 
 }
