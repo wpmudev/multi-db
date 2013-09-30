@@ -327,7 +327,9 @@ class m_wpdb extends wpdb {
 	 * @return false|string The version number on success, otherwise FALSE.
 	 */
 	public function db_version() {
-		return preg_replace( '/[^0-9.].*/', '', mysql_get_server_info( $this->dbhglobal ) );
+		return is_resource( $this->dbhglobal )
+			? preg_replace( '/[^0-9.].*/', '', @mysql_get_server_info( $this->dbhglobal ) )
+			: false;
 	}
 
 	/**
