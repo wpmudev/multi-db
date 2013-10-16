@@ -3,8 +3,8 @@
 Plugin Name: Multi-DB
 Plugin URI: http://premium.wpmudev.org/project/multi-db
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
-Author: Andrew Billits, S H Mohanjith (Incsub), Barry (Incsub)
-Version: 3.2.0
+Author: Incsub
+Version: 3.2.0.rc.1
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -444,6 +444,15 @@ class m_wpdb extends wpdb {
 		// look through all global tables and add global database prefix if it has been found
 		foreach ( $global_tables as $table ) {
 			$query = preg_replace( "/\s{$prefix}{$table}(\s|\.|,)/", " {$global['name']}.{$prefix}{$table}$1", $query );
+		}
+
+		// look through all local tables and add blog database prefix if it has been found
+		if ( $this->blogid > 1 ) {
+			$blog_database = self::_get_servers( self::_get_blog_dataset( $this->blogid ), 'read' );
+			if ( !empty( $blog_database ) ) {
+				$blog_database = $blog_database[0]['name'];
+				$query = preg_replace( "/\s{$this->prefix}(.*?)(\s|\.|,)/", " {$blog_database}.{$this->prefix}$1$2", $query );
+			}
 		}
 
 		return trim( $query );
