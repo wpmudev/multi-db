@@ -158,7 +158,6 @@ require_once ABSPATH . WPINC . '/wp-db.php';
 if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '3.2.0' );
 if ( !defined( 'WP_USE_MULTIPLE_DB' ) ) define( 'WP_USE_MULTIPLE_DB', false );
 if ( !defined( 'DB_SCALING' ) )         define( 'DB_SCALING', '16' );
-if ( !defined( 'SAVEQUERIES' ) )        define( 'SAVEQUERIES', false );
 if ( !defined( 'EZSQL_VERSION' ) )      define( 'EZSQL_VERSION', 'WP1.25' );
 if ( !defined( 'OBJECT' ) )             define( 'OBJECT', 'OBJECT', true );
 if ( !defined( 'OBJECT_K' ) )           define( 'OBJECT_K', 'OBJECT_K', false );
