@@ -88,11 +88,15 @@ echo "<table align='center' class='stats'><tr><td colspan='4' align='center'><br
 	<li>If this didn't work, don't blame me.  Sometimes life is just like that..</li></ol>
 	</td></tr><tr><td class='head' width='25%'>table name</td><td class='head' width='25%'>table info</td><td class='head' width='25%'>new db</td><td class='head' width='25%'>status</td></tr>";
 
+$blog_table_prefix_len = strlen( $blog_table_prefix );
 while ($row = mysql_fetch_row($result)) {
+	if ( substr( $row[0], 0, $blog_table_prefix_len ) != $blog_table_prefix ) {
+		continue;
+	}
 
 	//Here we find our blog id, hash it, and establish our new db names
-	$blogid_get = explode("_", $row[0]);
-	$blogid = $blogid_get[1];
+	$blogid_get = explode("_", substr( $row[0], $blog_table_prefix_len ) );
+	$blogid = $blogid_get[0];
 	$md5_hash = md5($blogid);
 	$md5_dbprefix = substr($md5_hash, 0, $newdbsize);
 	$this_blog_new_db = $newdb_prefix.$md5_dbprefix;
@@ -138,7 +142,7 @@ while ($row = mysql_fetch_row($result)) {
 		}
 		//Close the db and report db status
 		mysql_close($db); $testpass = "<font color='green'>&nbsp;exists</font>";
-		echo "<tr><td>{$row[0]}</td><td>blog {$blogid}</td><td>{$this_blog_new_db} <i>{$testpass}</i></td><td>{$tabletest}</td></tr>";
+		echo "<tr><td>{$row[0]}</td><td>global</td><td>{$this_blog_new_db} <i>{$testpass}</i></td><td>{$tabletest}</td></tr>";
 	}
 } // end while
 
@@ -147,5 +151,3 @@ echo "</table>";
 //Clean up after ourselves
 echo "<center>Ignore any errors below this line</center>";
 echo "<center>================================================================================</center>";
-
-?>
