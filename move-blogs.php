@@ -3,7 +3,7 @@
 /*
 Multi-DB plugin's database conversion tool
 Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
-Version: 2.9.2
+Version: 3.2
 Author: Incsub
 Author URI: http://premium.wpmudev.org/
 Description: This script is to move blogs from a wordpress mu single database setup, to a wordpress mu multiple database setup using an MD5 hash to establish blog routing
