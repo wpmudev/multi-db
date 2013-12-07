@@ -159,7 +159,7 @@ if ( file_exists( WP_CONTENT_DIR . '/db-list.php' ) ) {
 $wpdb = 'we-need-to-pre-populate-this-variable';
 require_once ABSPATH . WPINC . '/wp-db.php';
 
-if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '3.2' );
+if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '3.2.1' );
 if ( !defined( 'WP_USE_MULTIPLE_DB' ) ) define( 'WP_USE_MULTIPLE_DB', false );
 if ( !defined( 'DB_SCALING' ) )         define( 'DB_SCALING', '16' );
 if ( !defined( 'EZSQL_VERSION' ) )      define( 'EZSQL_VERSION', 'WP1.25' );
