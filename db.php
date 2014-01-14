@@ -55,10 +55,6 @@ $db_servers = $global_tables = $vip_blogs = $vip_blogs_datasets = $dc_ips = arra
 function add_db_server( $ds, $dc, $read, $write, $host, $lhost, $name, $user, $password ) {
 	global $db_servers;
 
-	if ( empty( $host ) && !empty( $lhost ) ) {
-		$host = $lhost;
-	}
-
 	$server = compact( 'ds', 'dc', 'read', 'write', 'host', 'name', 'user', 'password' );
 	if ( !empty( $lhost ) ) {
 		$server['lhost'] = $lhost;
