@@ -823,42 +823,6 @@ class m_wpdb extends wpdb {
 		return $dbh;
 	}
 
-	/**
-	 * Sets blog id.
-	 *
-	 * @since 3.2.0
-	 *
-	 * @access public
-	 * @param int $blog_id
-	 * @param int $site_id Optional.
-	 * @return string previous blog id
-	 */
-	public function set_blog_id( $blog_id, $site_id = 0 ) {
-		$old_blog_id = parent::set_blog_id( $blog_id, $site_id );
-		if ( $old_blog_id == $blog_id ) {
-			return $old_blog_id;
-		}
-
-		$dataset = self::_get_blog_dataset( $blog_id );
-		foreach ( array( 'write', 'read' ) as $operation ) {
-			$dataset_key = "{$dataset}.{$operation}";
-			if ( !isset( $this->dbh_connections[$dataset_key] ) || !is_resource( $this->dbh_connections[$dataset_key]['connection'] ) ) {
-				foreach ( self::_get_servers( $dataset, $operation ) as $server ) {
-					if ( $this->_connect_to_server( $server, $dataset, $operation ) ) {
-						break;
-					}
-				}
-			} else {
-				// move connection to the end
-				$connection = $this->dbh_connections[$dataset_key];
-				unset( $this->dbh_connections[$dataset_key] );
-				$this->dbh_connections[$dataset_key] = $connection;
-			}
-		}
-
-		return $old_blog_id;
-	}
-
 }
 
 // redefine database connection class
