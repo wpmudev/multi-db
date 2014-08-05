@@ -2,7 +2,7 @@
 
 /*
 Multi-DB plugin's database conversion tool
-Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
+Plugin URI https://premium.wpmudev.org/project/multi-db
 Version: 3.2
 Author: WPMU DEV
 Author URI: http://premium.wpmudev.org/
