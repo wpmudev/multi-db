@@ -83,6 +83,9 @@ add_db_server('f', 'dc1', 1, 1,'localhost','localhost', 'wpf', 'root',  'root');
 //---VIP Blogs------------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Usage: add_vip_blog(BLOG_ID, DS)
+//  VIP blogs are only useful if they have traffic that warrants them being put on a SEPERATE PHYSICAL SERVER.
+//  If you do not plan to put them on their own server, don't use them, it's not worth it!
+
 //	EX: add_vip_blog(1, 'vip1');
 
 ?>

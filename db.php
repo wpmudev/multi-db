@@ -4,11 +4,12 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 3.3 beta 1
+Version: 3.2.4
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
 Extends WordPress DB Class
+
 ORIGINAL CODE FROM:
 Justin Vincent (justin@visunet.ie)
 http://php.justinvincent.com
@@ -218,26 +219,11 @@ class m_wpdb extends wpdb {
 	 * @param string $dbname MySQL database name
 	 * @param string $dbhost MySQL database host
 	 */
-	function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
+	public function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
 		register_shutdown_function( array( $this, '__destruct' ) );
 
-		if ( WP_DEBUG && WP_DEBUG_DISPLAY )
+		if ( WP_DEBUG && WP_DEBUG_DISPLAY ) {
 			$this->show_errors();
-
-		/* Use ext/mysqli if it exists and:
-		 *  - WP_USE_EXT_MYSQL is defined as false, or
-		 *  - We are a development version of WordPress, or
-		 *  - We are running PHP 5.5 or greater, or
-		 *  - ext/mysql is not loaded.
-		 */
-		if ( function_exists( 'mysqli_connect' ) ) {
-			if ( defined( 'WP_USE_EXT_MYSQL' ) ) {
-				$this->use_mysqli = ! WP_USE_EXT_MYSQL;
-			} elseif ( version_compare( phpversion(), '5.5', '>=' ) || ! function_exists( 'mysql_connect' ) ) {
-				$this->use_mysqli = true;
-			} elseif ( false !== strpos( $GLOBALS['wp_version'], '-' ) ) {
-				$this->use_mysqli = true;
-			}
 		}
 
 		$this->init_charset();
@@ -468,50 +454,26 @@ class m_wpdb extends wpdb {
 				$query = preg_replace( "/\s{$this->prefix}(.*?)(\s|\.|,|\()/", " {$blog_database}.{$this->prefix}$1$2", $query );
 			}
 		}
-		
-		if ( $this->blogid > 1 ) {
-			global $vip_blogs;
-			if ( in_array( $this->blogid, $vip_blogs ) ) {
-				// VIP Blog
-				$dataset = $vip_blogs_datasets[$this->blogid];
-			} else {
-				$dataset = self::_get_blog_dataset( $this->blogid );
-			}
-			$blog_database = self::_get_servers( $dataset, 'read' );
-			if ( !empty( $blog_database ) ) {
-			$blog_database = $blog_database[0]['name'];
-			$query = preg_replace( "/\s{$this->prefix}(.*?)(\s|\.|,|\()/", " {$blog_database}.{$this->prefix}$1$2", $query );
-			}
-		}
 
 		return trim( $query );
 	}
 
 	/**
-	 * Perform a MySQL database query, using current database connection.
+	 * Performs a MySQL database query, using current database connection.
 	 *
-	 * More information can be found on the codex page.
-	 *
-	 * @since 0.71
-	 *
-	 * @param string $query Database query
+	 * @access public
+	 * @param string $query Database query to execute.
 	 * @return int|false Number of rows affected/selected or false on error
 	 */
-	function query( $query ) {
-		if ( ! $this->ready )
+	public function query( $query ) {
+		if ( !$this->ready ) {
 			return false;
+		}
 
-		/**
-		 * Filter the database query.
-		 *
-		 * Some queries are made before the plugins have been loaded,
-		 * and thus cannot be filtered with this method.
-		 *
-		 * @since 2.1.0
-		 *
-		 * @param string $query Database query.
-		 */
-		$query = apply_filters( 'query', $query );
+		// some queries are made before the plugins have been loaded, and thus cannot be filtered with this method
+		if ( function_exists( 'apply_filters' ) ) {
+			$query = apply_filters( 'query', $query );
+		}
 
 		$return_val = 0;
 		$this->flush();
@@ -532,77 +494,47 @@ class m_wpdb extends wpdb {
 		// Keep track of the last query for debug..
 		$this->last_query = $query;
 
-		$this->_do_query( $query );
-
-		// MySQL server has gone away, try to reconnect
-		$mysql_errno = 0;
-		if ( ! empty( $this->dbh ) ) {
-			if ( $this->use_mysqli ) {
-				$mysql_errno = mysqli_errno( $this->dbh );
-			} else {
-				$mysql_errno = mysql_errno( $this->dbh );
-			}
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+			$this->timer_start();
 		}
 
-		if ( empty( $this->dbh ) || 2006 == $mysql_errno ) {
-			if ( $this->check_connection() ) {
-				$this->_do_query( $query );
-			} else {
-				$this->insert_id = 0;
-				return false;
-			}
+		$this->result = @mysql_query( $query, $dbh );
+		$this->num_queries++;
+
+		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
+			$this->queries[] = array( $query, $this->timer_stop(), $this->get_caller() );
 		}
 
 		// If there is an error then take note of it..
-		if ( $this->use_mysqli ) {
-			$this->last_error = mysqli_error( $this->dbh );
-		} else {
-			$this->last_error = mysql_error( $this->dbh );
-		}
-
-		if ( $this->last_error ) {
-			// Clear insert_id on a subsequent failed insert.
-			if ( $this->insert_id && preg_match( '/^\s*(insert|replace)\s/i', $query ) )
-				$this->insert_id = 0;
-
-			$this->print_error();
+		if ( is_resource( $dbh ) && ( $this->last_error = mysql_error( $dbh ) ) ) {
+			$this->print_error( $this->last_error );
 			return false;
 		}
 
-		if ( preg_match( '/^\s*(create|alter|truncate|drop)\s/i', $query ) ) {
-			$return_val = $this->result;
-		} elseif ( preg_match( '/^\s*(insert|delete|update|replace)\s/i', $query ) ) {
-			if ( $this->use_mysqli ) {
-				$this->rows_affected = mysqli_affected_rows( $this->dbh );
-			} else {
-				$this->rows_affected = mysql_affected_rows( $this->dbh );
-			}
+		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter) /i", $query ) ) {
+			$this->rows_affected = mysql_affected_rows( $dbh );
 			// Take note of the insert_id
-			if ( preg_match( '/^\s*(insert|replace)\s/i', $query ) ) {
-				if ( $this->use_mysqli ) {
-					$this->insert_id = mysqli_insert_id( $this->dbh );
-				} else {
-					$this->insert_id = mysql_insert_id( $this->dbh );
-				}
+			if ( preg_match( "/^\\s*(insert|replace) /i", $query ) ) {
+				$this->insert_id = mysql_insert_id( $dbh );
 			}
 			// Return number of rows affected
 			$return_val = $this->rows_affected;
 		} else {
-			$num_rows = 0;
-			if ( $this->use_mysqli ) {
-				while ( $row = @mysqli_fetch_object( $this->result ) ) {
-					$this->last_result[$num_rows] = $row;
-					$num_rows++;
-				}
-			} else {
-				while ( $row = @mysql_fetch_object( $this->result ) ) {
-					$this->last_result[$num_rows] = $row;
-					$num_rows++;
-				}
+			$i = 0;
+			while ( $i < @mysql_num_fields( $this->result ) ) {
+				$this->col_info[$i] = @mysql_fetch_field( $this->result );
+				$i++;
 			}
 
-			// Log number of rows the query returned
-			// and return number of rows selected
+			$num_rows = 0;
+			while ( $row = @mysql_fetch_object( $this->result ) ) {
+				$this->last_result[$num_rows] = $row;
+				$num_rows++;
+			}
+
+			@mysql_free_result( $this->result );
+
+			// Log number of rows the query returned and return number of rows selected
 			$this->num_rows = $num_rows;
 			$return_val     = $num_rows;
 		}
@@ -616,13 +548,11 @@ class m_wpdb extends wpdb {
 	 * @access public
 	 * @global type $original_table_prefix
 	 * @global type $global_tables
-	 * @global array $vip_blogs
-	 * @global array $vip_blogs_datasets
 	 * @param string $query The query string to analyze.
 	 * @return array The connection information array.
 	 */
 	public function analyze_query( $query ) {
-		global $original_table_prefix, $global_tables, $vip_blogs, $vip_blogs_datasets;
+		global $original_table_prefix, $global_tables;
 
 		// trim query
 		$query = rtrim( trim( $query ), ';' );
@@ -742,20 +672,13 @@ class m_wpdb extends wpdb {
 		if ( $table_type == 'global' ) {
 			$dataset = 'global';
 		} elseif ( $table_type == 'blog' ) {
-			// is VIP?
-			if ( in_array( $blog_id, $vip_blogs ) ) {
-				// VIP Blog
-				$dataset = $vip_blogs_datasets[$blog_id];
+			// check if the blog_id is set.
+			if ( empty( $blog_id ) ) {
+				// we are on a multi-site blog without a number, or we have an unidentified global table
+				$blog_id = 'global';
+				$dataset = 'global';
 			} else {
-				// not VIP Blog
-				// check if the blog_id is set.
-				if ( empty( $blog_id ) ) {
-					// we are on a multi-site blog without a number, or we have an unidentified global table
-					$blog_id = 'global';
-					$dataset = 'global';
-				} else {
-					$dataset = self::_get_blog_dataset( $blog_id );
-				}
+				$dataset = self::_get_blog_dataset( $blog_id );
 			}
 		}
 
@@ -779,6 +702,13 @@ class m_wpdb extends wpdb {
 	 * @return string The dataset string.
 	 */
 	protected static function _get_blog_dataset( $blog_id ) {
+		global $vip_blogs_datasets;
+
+		//check if this is a VIP blog
+		if ( isset( $vip_blogs_datasets[ $blog_id ] ) ) {
+			return $vip_blogs_datasets[ $blog_id ];
+		}
+
 		$hash_value = md5( $blog_id );
 		if ( defined( 'DB_SCALING' ) ) {
 			if ( DB_SCALING == 4096 ) {
