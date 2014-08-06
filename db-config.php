@@ -1,19 +1,22 @@
 <?php
 //	Multi-DB plugin's database configuration file
-//	Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
+//	Plugin URI https://premium.wpmudev.org/project/multi-db/
 //	Author: Andrew Billits (Incsub), S H Mohanjith (Incsub)
-//  Version: 2.9.2
+//  Version: 3.2.4
+
 //------------------------------------------------------------------------//
 //---DB Scaling-----------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	16,256,4096
 define ('DB_SCALING', '16');
+
 //------------------------------------------------------------------------//
 //---DC IPs---------------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Usage: add_dc_ip(IP, DC)
 //	EX: add_dc_ip('123.123.123.', 'dc1');
 add_dc_ip('127.0.0.', 'dc1');
+
 //------------------------------------------------------------------------//
 //---Global Tables--------------------------------------------------------//
 //------------------------------------------------------------------------//
@@ -83,9 +86,7 @@ add_db_server('f', 'dc1', 1, 1,'localhost','localhost', 'wpf', 'root',  'root');
 //---VIP Blogs------------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Usage: add_vip_blog(BLOG_ID, DS)
-//  VIP blogs are only useful if they have traffic that warrants them being put on a SEPERATE PHYSICAL SERVER.
+//  VIP blogs are only useful if they have traffic that warrants them being put on a SEPARATE PHYSICAL SERVER.
 //  If you do not plan to put them on their own server, don't use them, it's not worth it!
 
-//	EX: add_vip_blog(1, 'vip1');
-
-?>
+//	add_vip_blog(1, 'vip1');
