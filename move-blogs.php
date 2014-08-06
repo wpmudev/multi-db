@@ -2,11 +2,11 @@
 
 /*
 Multi-DB plugin's database conversion tool
-Plugin URI https://premium.wpmudev.org/project/multi-db
-Version: 3.2
+Plugin URI https://premium.wpmudev.org/project/multi-db/
+Version: 3.2.4
 Author: WPMU DEV
 Author URI: http://premium.wpmudev.org/
-Description: This script is to move blogs from a wordpress mu single database setup, to a wordpress mu multiple database setup using an MD5 hash to establish blog routing
+Description: This script is to move blogs from a WordPress Multisite single database setup, to a WordPress Multisite multiple database setup using an MD5 hash to establish blog routing
 */
 
 
@@ -81,6 +81,7 @@ if ( !$result ) {
 				<td colspan="4" align="center">
 					<ol>
 						<li>Tested on PHP 5 & MySQL 5</li>
+						<li>Note this will only work if all the new databases are on the same MySQL server, and ONE set of credentials has access to all of them.</li>
 						<li>Make sure all of your new db's exist (green text next to table name in db column below)</li>
 						<li>In the status section, each table should show <i>not in new db (unless you've already run this script)</i></li>
 						<li>To start the copy process <a href='move-blogs.php?table=copy'>click here</a> </li>
@@ -112,7 +113,7 @@ if ( !$result ) {
 					: $newdb_prefix . "global";
 
 				$db = mysql_connect( $dbhost, $dbuname, $dbpass ) or die( "Houston, we have a problem!<br>Database Error: " . mysql_error() );
-				mysql_select_db( $this_blog_new_db, $db ) or die( "Houston, we have a problem!<br><b>Looks like you need to create your new db's! If you're lucky, this link still works - <a href='http://calc.idtstudios.com/db.php'>click me</a> </b><br />Database Error: " . mysql_error() );
+				mysql_select_db( $this_blog_new_db, $db ) or die( "Houston, we have a problem!<br><b>Looks like you need to create your new db's! If you're lucky, this link still works - <a href='http://premium.wpmudev.org/db-tools/db.php'>click me</a> </b><br />Database Error: " . mysql_error() );
 
 				$tableexists = mysql_num_rows( mysql_query( "SHOW TABLES LIKE '{$row[0]}'" ) );
 				$tabletest = $tableexists
