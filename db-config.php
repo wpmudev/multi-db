@@ -1,8 +1,6 @@
 <?php
 //	Multi-DB plugin's database configuration file
 //	Plugin URI https://premium.wpmudev.org/project/multi-db/
-//	Author: Andrew Billits (Incsub), S H Mohanjith (Incsub)
-//  Version: 3.2.4
 
 //------------------------------------------------------------------------//
 //---DB Scaling-----------------------------------------------------------//
@@ -22,6 +20,8 @@ add_dc_ip('127.0.0.', 'dc1');
 //------------------------------------------------------------------------//
 //	Do not include default global tables
 //	Leave off base prefix (eg: wp_)
+//  You don't really have to register these, they will work fine without.
+//  However registering at least your busiest ones might shave a few milliseconds off by avoiding some regexes.
 //
 //	Usage: add_global_table(TABLE_NAME)
 //	EX: add_global_table('something');

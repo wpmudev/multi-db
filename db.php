@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 3.2.4
+Version: 3.2.5
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -430,29 +430,38 @@ class m_wpdb extends wpdb {
 	public function sanitize_multidb_query_tables( $query ) {
 		global $global_tables;
 
-		// add whitespace at the end of the query to make our patterns working properly
-		$query = trim( $query ) . ' ';
-
-		// don't touch non select queries.
-		if ( !preg_match( '/^SELECT\s+/is', $query ) ) {
-			return $query;
-		}
-
-		$global = $this->_get_global_read();
-		$prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
-
-		// look through all global tables and add global database prefix if it has been found
-		foreach ( $global_tables as $table ) {
-			$query = preg_replace( "/\s{$prefix}{$table}(\s|\.|,)/", " {$global['name']}.{$prefix}{$table}$1", $query );
-		}
-
 		// look through all local tables and add blog database prefix if it has been found
 		if ( $this->blogid > 1 ) {
+
+			// add whitespace at the end of the query to make our patterns working properly
+			$query = trim( $query ) . ' ';
+
 			$blog_database = self::_get_servers( self::_get_blog_dataset( $this->blogid ), 'read' );
-			if ( !empty( $blog_database ) ) {
-				$blog_database = $blog_database[0]['name'];
-				$query = preg_replace( "/\s{$this->prefix}(.*?)(\s|\.|,|\()/", " {$blog_database}.{$this->prefix}$1$2", $query );
+			if ( empty( $blog_database ) ) {
+				return $query;
 			}
+
+			$global = $this->_get_global_read();
+
+			//if not on same physical mysql server, and same username, we can't do joins
+			if ( $global[0]['host'] != $blog_database[0]['host'] || $global[0]['user'] != $blog_database[0]['user']) {
+				return $query;
+			}
+
+			// don't touch non select queries.
+			if ( !preg_match( '/^SELECT\s+/is', $query ) ) {
+				return $query;
+			}
+
+			$global_prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
+
+			// look through all global tables and add global database prefix if it has been found
+			foreach ( $global_tables as $table ) {
+				$query = preg_replace( "/\s{$global_prefix}{$table}(\s|\.|,)/", " {$global['name']}.{$global_prefix}{$table}$1", $query );
+			}
+
+			$blog_database = $blog_database[0]['name'];
+			$query = preg_replace( "/\s{$this->prefix}(.*?)(\s|\.|,|\()/", " {$blog_database}.{$this->prefix}$1$2", $query );
 		}
 
 		return trim( $query );
@@ -561,7 +570,7 @@ class m_wpdb extends wpdb {
 
 		$maybe = $return = array();
 		$table_name = 'unknown';
-		if ( preg_match( '/^SELECT.*?\s+FROM\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
+		if ( preg_match( '/^SELECT.*?\s+FROM\s+`?([0-9,a-z,A-Z$_\.]+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^UPDATE IGNORE\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
@@ -828,4 +837,4 @@ class m_wpdb extends wpdb {
 $wpdb = new m_wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 
 add_filter( 'tables_to_repair', array( $wpdb, 'get_all_tables' ) );
-add_filter( 'query', array( $wpdb, 'sanitize_multidb_query_tables' ) );
+//add_filter( 'query', array( $wpdb, 'sanitize_multidb_query_tables' ) );

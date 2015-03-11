@@ -1,28 +1,29 @@
 <?php
-//	Multi-DB plugin's database configuration file
-//	Plugin URI http://premium.wpmudev.org/project/Multiple-Databases
-//	Author: Andrew Billits (Incsub)
-//  Version: 2.9.2
 //------------------------------------------------------------------------//
 //---DB Scaling-----------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	16,256,4096
 define ('DB_SCALING', '16');
+
 //------------------------------------------------------------------------//
 //---DC IPs---------------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Usage: add_dc_ip(IP, DC)
 //	EX: add_dc_ip('123.123.123.', 'dc1');
 add_dc_ip('123.123.123.', 'dc1');
+
 //------------------------------------------------------------------------//
 //---Global Tables--------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Do not include default global tables
 //	Leave off base prefix (eg: wp_)
+//  You don't really have to register these, they will work fine without.
+//  However registering at least your busiest ones might shave a few milliseconds off by avoiding some regexes.
 //
 //	Usage: add_global_table(TABLE_NAME)
 //	EX: add_global_table('something');
 add_global_table('some_global_table');
+
 //------------------------------------------------------------------------//
 //---DB Servers-----------------------------------------------------------//
 //------------------------------------------------------------------------//
@@ -53,12 +54,14 @@ add_db_server('d', 'dc1', 1, 1,'64.120.23.72','192.168.0.101', 'wpmu_d', 'db_use
 add_db_server('e', 'dc1', 1, 1,'64.120.23.72','192.168.0.101', 'wpmu_e', 'db_user_name',  'db_user_name_pass');
 add_db_server('f', 'dc1', 1, 1,'64.120.23.72','192.168.0.101', 'wpmu_f', 'db_user_name',  'db_user_name_pass');
 
-add_db_server('vip1', 'dc1', 1, 1,'64.120.23.72','192.168.0.101', 'wpmu_vip_1', 'db_user_name',  'db_user_name_pass');
 //------------------------------------------------------------------------//
 //---VIP Blogs------------------------------------------------------------//
 //------------------------------------------------------------------------//
 //	Usage: add_vip_blog(BLOG_ID, DS)
 //	EX: add_vip_blog(1, 'vip1');
+//  Only use VIP blogs if you meet 2 criteria, otherwise they are pointless:
+//   1. You have a specific blog that gets crazy crazy traffic to the point that it warrants it's own DB server
+//   2. You host it on it's own PHYSICAL db server
 
+add_db_server('vip1', 'dc1', 1, 1,'64.120.23.72','192.168.0.101', 'wpmu_vip_1', 'db_user_name',  'db_user_name_pass');
 add_vip_blog(1, 'vip1');
-?>
