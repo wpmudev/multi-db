@@ -1,5 +1,7 @@
 # Multi DB
 
+**INACTIVE NOTICE: This plugin is unsupported by WPMUDEV, we've published it here for those technical types who might want to fork and maintain it for their needs.**
+
 The standard WordPress Multisite installation requires only one database – which is great for hobbyists or people just looking to host a few dozen or few hundred sites.
 
 When you get past a few hundred sites, a single database can get cramped.
