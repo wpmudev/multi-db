@@ -269,7 +269,7 @@ If you have created more than one VIP database, add a similar line for each one.
 
 All done? Please double-check to make sure that you have the correct number of lines in there corresponding to the number of databases you created (16, 256 or 4096), as well as one for the global database, and any VIP databases you may have created too.
 
-Now copy the entire contents of the textarea, and paste it in db-config.php at line 65, replacing all the existing examples there.
+Now copy the entire contents of the textarea, and paste it in db-config.php at line 67, replacing all the existing examples there.
 
 That section in your `db-config.php` should now look like this:
 
@@ -352,7 +352,7 @@ Open up your web browser and enter the full URL to the `move-blogs.php` file on 
 http://yourdomain.com/wp-content/scripts/move-blogs.php
 ```
 
-You’ll see that there are 9 instructions at the top of this page.
+You’ll see that there are 10 instructions at the top of this page.
 
 ![Multi-DB Move Blogs Tool](https://premium.wpmudev.org/wp-content/uploads/2008/08/multi-db-3240-move-blogs-tool.png)
 
@@ -361,7 +361,7 @@ Simply follow the instructions at the top of that screen. The main things to che
  * The `new db` column should display a green `exists` on each line.
  * The `status` column should show `not in new db` on each line.
 
-When you’ve verified that everything looks right, click the link in step 4 of that screen. Once the process completes, click the link in step 6 to refresh the page. You should now see table in new db under the status column for each row.
+When you’ve verified that everything looks right, click the link in step 5 of that screen. Once the process completes, click the link in step 7 to refresh the page. You should now see 'table in new db' under the status column for each row.
 
 If all is good there, then you have successfully completed your multi-db installation! Congratulations!
 
