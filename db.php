@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 3.2.5
+Version: 4.0
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -156,7 +156,7 @@ if ( file_exists( WP_CONTENT_DIR . '/db-list.php' ) ) {
 $wpdb = 'we-need-to-pre-populate-this-variable';
 require_once ABSPATH . WPINC . '/wp-db.php';
 
-if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '3.2.2' );
+if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '4.0' );
 if ( !defined( 'WP_USE_MULTIPLE_DB' ) ) define( 'WP_USE_MULTIPLE_DB', false );
 if ( !defined( 'DB_SCALING' ) )         define( 'DB_SCALING', '16' );
 if ( !defined( 'EZSQL_VERSION' ) )      define( 'EZSQL_VERSION', 'WP1.25' );
@@ -221,9 +221,9 @@ class m_wpdb extends wpdb {
 	 */
 	public function __construct( $dbuser, $dbpassword, $dbname, $dbhost ) {
 		register_shutdown_function( array( $this, '__destruct' ) );
-
+	 	$this->use_mysqli=true;
 		if ( WP_DEBUG && WP_DEBUG_DISPLAY ) {
-			$this->show_errors();
+		    $this->show_errors();
 		}
 
 		$this->init_charset();
@@ -235,15 +235,17 @@ class m_wpdb extends wpdb {
 
 		// Try to connect to the database
 		$global = $this->_get_global_read();
-		$this->dbhglobal = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
-		$this->dbh = @mysql_connect( $global['host'], $global['user'], $global['password'], true );
+		$this->dbhglobal = mysqli_connect( $global['host'], $global['user'], $global['password'] );
 
-		if ( !$this->dbhglobal ) {
-			$this->_bail_db_connection_error();
+		$this->dbh = mysqli_connect( $global['host'], $global['user'], $global['password'] );
+
+		if ( ! $this->dbhglobal ) {
+		    $this->_bail_db_connection_error();
 		}
 
 		$this->set_charset( $this->dbhglobal );
 		$this->ready = true;
+
 		$this->select( $global['name'], $this->dbhglobal );
 	}
 
@@ -263,7 +265,7 @@ class m_wpdb extends wpdb {
 				<li>Are you sure that you have typed the correct hostname?</li>
 				<li>Are you sure that the database server is running?</li>
 			</ul>
-			<p>If you're unsure what these terms mean you should probably contact your host. If you still need help you can always visit the <a href='http://wordpress.org/support/'>WordPress Support Forums</a>.</p>
+			<p>If you're unsure what these terms mean you should probably contact your host. If you still need help you can always visit the <a href='https://wordpress.org/support/'>WordPress Support Forums</a>.</p>
 		"/*/WP_I18N_DB_CONN_ERROR*/ ), 'db_connect_fail' );
 	}
 
@@ -304,9 +306,9 @@ class m_wpdb extends wpdb {
 	}
 
 	/**
-	 * Real escapes, using mysql_real_escape_string() or addslashes()
+	 * Real escapes, using mysqli_real_escape_string() or addslashes()
 	 *
-	 * @see mysql_real_escape_string()
+	 * @see mysqli_real_escape_string()
 	 * @see addslashes()
 	 *
 	 * @access private
@@ -314,8 +316,8 @@ class m_wpdb extends wpdb {
 	 * @return string Escaped string.
 	 */
 	function _real_escape( $string ) {
-		if ( is_resource( $this->dbhglobal ) )
-			return mysql_real_escape_string( $string, $this->dbhglobal );
+		if ( is_object( $this->dbhglobal ) )
+			return mysqli_real_escape_string(  $this->dbhglobal,$string );
 		else
 			return addslashes( $string );
 	}
@@ -327,8 +329,8 @@ class m_wpdb extends wpdb {
 	 * @return false|string The version number on success, otherwise FALSE.
 	 */
 	public function db_version() {
-		return is_resource( $this->dbhglobal )
-			? preg_replace( '/[^0-9.].*/', '', @mysql_get_server_info( $this->dbhglobal ) )
+		return is_object( $this->dbhglobal ) ? 
+			preg_replace( '/[^0-9.].*/', '', mysqli_get_server_info( $this->dbhglobal ) ) 
 			: false;
 	}
 
@@ -374,7 +376,7 @@ class m_wpdb extends wpdb {
 		$operation = $query_data['query_type'] == 'write' ? 'write' : 'read';
 
 		// Return a global read database as if already have it connected
-		if ( $operation == 'read' && $query_data['dataset'] == 'global' && is_resource( $this->dbhglobal ) ) {
+		if ( $operation == 'read' && $query_data['dataset'] == 'global' && is_object( $this->dbhglobal ) ) {
 			return $this->dbhglobal;
 		}
 
@@ -384,7 +386,7 @@ class m_wpdb extends wpdb {
 
 		// check if we're already connected.
 		$dataset_key = "{$query_data['dataset']}.{$operation}";
-		if ( isset( $this->dbh_connections[$dataset_key] ) && is_resource( $this->dbh_connections[$dataset_key]['connection'] ) ) {
+		if ( isset( $this->dbh_connections[$dataset_key] ) && is_object( $this->dbh_connections[$dataset_key]['connection'] ) ) {
 			return $this->dbh_connections[$dataset_key]['connection'];
 		}
 
@@ -405,8 +407,8 @@ class m_wpdb extends wpdb {
 	 * @param string $dbhname The database name to close connection to.
 	 */
 	public function disconnect( $dbhname ) {
-		if ( isset( $this->dbh_connections[$dbhname]['connection'] ) && is_resource( $this->dbh_connections[$dbhname]['connection'] ) ) {
-			@mysql_close( $this->dbh_connections[$dbhname]['connection'] );
+		if ( isset( $this->dbh_connections[$dbhname]['connection'] ) && is_object( $this->dbh_connections[$dbhname]['connection'] ) ) {
+			mysqli_close( $this->dbh_connections[$dbhname]['connection'] );
 			unset( $this->dbh_connections[$dbhname] );
 		}
 	}
@@ -452,6 +454,10 @@ class m_wpdb extends wpdb {
 			if ( !preg_match( '/^SELECT\s+/is', $query ) ) {
 				return $query;
 			}
+			
+			 if ( ! preg_match( '/^JOIN\s+/is', $query ) ) {
+				return $query;
+	    		}
 
 			$global_prefix = isset( $this->base_prefix ) ? $this->base_prefix : $this->prefix;
 
@@ -493,7 +499,7 @@ class m_wpdb extends wpdb {
 
 		// Test the global is set and if not then set it
 		$dbh = $this->db_connect( $query );
-		if ( !is_resource( $dbh ) ) {
+		if ( !is_object( $dbh ) ) {
 			$this->_bail_db_connection_error();
 			return false;
 		}
@@ -507,7 +513,7 @@ class m_wpdb extends wpdb {
 			$this->timer_start();
 		}
 
-		$this->result = @mysql_query( $query, $dbh );
+		$this->result = mysqli_query( $dbh, $query );
 		$this->num_queries++;
 
 		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
@@ -515,33 +521,37 @@ class m_wpdb extends wpdb {
 		}
 
 		// If there is an error then take note of it..
-		if ( is_resource( $dbh ) && ( $this->last_error = mysql_error( $dbh ) ) ) {
+		if ( is_object( $dbh ) && ( $this->last_error = mysqli_error( $dbh ) ) ) {
 			$this->print_error( $this->last_error );
 			return false;
 		}
+		
+		//Remove carriage returns https://stackoverflow.com/questions/3059091/how-to-remove-carriage-returns-from-output-of-string
+		$query=trim(preg_replace('~[[:cntrl:]]~', ' ', $query));
 
-		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter) /i", $query ) ) {
-			$this->rows_affected = mysql_affected_rows( $dbh );
+		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter|create) /i", $query ) ) {
+			$this->rows_affected = mysqli_affected_rows( $dbh );
 			// Take note of the insert_id
 			if ( preg_match( "/^\\s*(insert|replace) /i", $query ) ) {
-				$this->insert_id = mysql_insert_id( $dbh );
+				$this->insert_id = mysqli_insert_id( $dbh );
 			}
 			// Return number of rows affected
 			$return_val = $this->rows_affected;
 		} else {
 			$i = 0;
-			while ( $i < @mysql_num_fields( $this->result ) ) {
-				$this->col_info[$i] = @mysql_fetch_field( $this->result );
+			$thefield_count=$this->result->field_count;
+			while ( $i < $thefield_count )  {
+				$this->col_info[$i] = mysqli_fetch_field( $this->result );
 				$i++;
 			}
 
 			$num_rows = 0;
-			while ( $row = @mysql_fetch_object( $this->result ) ) {
+			while ( $row = $this->result->fetch_object() ) {
 				$this->last_result[$num_rows] = $row;
 				$num_rows++;
 			}
 
-			@mysql_free_result( $this->result );
+			//mysqli_free_result( $this->result );
 
 			// Log number of rows the query returned and return number of rows selected
 			$this->num_rows = $num_rows;
@@ -563,6 +573,8 @@ class m_wpdb extends wpdb {
 	public function analyze_query( $query ) {
 		global $original_table_prefix, $global_tables;
 
+		//Remove carriage returns https://stackoverflow.com/questions/3059091/how-to-remove-carriage-returns-from-output-of-string
+	        $query=trim(preg_replace('~[[:cntrl:]]~', ' ', $query));
 		// trim query
 		$query = rtrim( trim( $query ), ';' );
 		// Set initial force local stuff.
@@ -800,8 +812,8 @@ class m_wpdb extends wpdb {
 	 * @return resource|boolean The MySQL connection on success, otherwise FALSE.
 	 */
 	protected function _connect_to_server( $server, $dataset, $operation ) {
-		$dbh = @mysql_connect( $server['host'], $server['user'], $server['password'], true );
-		if ( !is_resource( $dbh ) )  {
+		$dbh = mysqli_connect( $server['host'], $server['user'], $server['password'] );
+		if ( !is_object( $dbh ) )  {
 			return false;
 		}
 
