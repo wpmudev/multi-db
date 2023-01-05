@@ -69,7 +69,7 @@ While you can name your databases anything you like, we know from experience tha
 
 We’ll get to that file in the next step below, but first we need to get the proper SQL command set up. We’ve provided an easy tool for that, you can check it under /db-tools/ within this repository.
 
-**IMPORTANT: Once you upload the db-tools directory to your site, anyone will be able to access it, so please make sure to implement some protection or remove if after you are done with your changes.**
+**IMPORTANT: Once you upload the db-tools directory to your site, any logged in user will be able to access it.**
 
 Be sure you’re on the correct tool for database creation by clicking the DB SQL link at the top of the page.
 
