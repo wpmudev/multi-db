@@ -226,7 +226,7 @@ The other global table lines in there are required by the plugins specified.
 The next thing we want to configure in this file is the *DB Servers* section.
 
 To do that, we’re going to use another of the online tools we have provided: 
-http://premium.wpmudev.org/db-tools/db_servers.php
+http://yourdomain.com/db-tools/db_servers.php
 
 Click on that link now, and be sure you’re on the correct tool by clicking the DB Servers link at the top of the page.
 
