@@ -67,11 +67,11 @@ This plugin has a cool feature that allows for VIP databases. It enables you to 
 
 While you can name your databases anything you like, we know from experience that ordering them as we have in this walkthrough will make management easier down the road, and it also lets you more easily use the included db-config.php file.
 
-We’ll get to that file in the next step below, but first we need to get the proper SQL command set up. We’ve provided an easy tool for that:
+We’ll get to that file in the next step below, but first we need to get the proper SQL command set up. We’ve provided an easy tool for that, you can check it under /db-tools/ within this repository.
 
-http://premium.wpmudev.org/db-tools/db_sql.php
+**IMPORTANT: Once you upload the db-tools directory to your site, any logged in user will be able to access it.**
 
-Go ahead and click on that link now, and be sure you’re on the correct tool for database creation by clicking the DB SQL link at the top of the page.
+Be sure you’re on the correct tool for database creation by clicking the DB SQL link at the top of the page.
 
 ![M](https://premium.wpmudev.org/wp-content/uploads/2008/08/multi-db-3240-db-tools.png)
 
