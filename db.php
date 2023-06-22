@@ -529,7 +529,7 @@ class m_wpdb extends wpdb {
 		//Remove carriage returns https://stackoverflow.com/questions/3059091/how-to-remove-carriage-returns-from-output-of-string
 		$query=trim(preg_replace('~[[:cntrl:]]~', ' ', $query));
 
-		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter|create|drop) /i", $query ) ) {
+		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter|create|drop|truncate) /i", $query ) ) {
 			$this->rows_affected = mysqli_affected_rows( $dbh );
 			// Take note of the insert_id
 			if ( preg_match( "/^\\s*(insert|replace) /i", $query ) ) {
