@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 4.0
+Version: 4.0.1
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -154,9 +154,17 @@ if ( file_exists( WP_CONTENT_DIR . '/db-list.php' ) ) {
 
 // To allow extending of database class
 $wpdb = 'we-need-to-pre-populate-this-variable';
-require_once ABSPATH . WPINC . '/wp-db.php';
 
-if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '4.0' );
+//For WP 6.1+. File wp-db.php is deprecated since WordPress version 6.1.0
+//@since 5.0
+global $wp_version;
+if ( version_compare($wp_version,'6.1.0') >= 0) {
+   	require_once ABSPATH . WPINC . '/class-wpdb.php';
+} else {
+    require_once ABSPATH . WPINC . '/wp-db.php';
+} 
+
+if ( !defined( 'MULTI_DB_VERSION' ) )   define( 'MULTI_DB_VERSION', '5.0' );
 if ( !defined( 'WP_USE_MULTIPLE_DB' ) ) define( 'WP_USE_MULTIPLE_DB', false );
 if ( !defined( 'DB_SCALING' ) )         define( 'DB_SCALING', '16' );
 if ( !defined( 'EZSQL_VERSION' ) )      define( 'EZSQL_VERSION', 'WP1.25' );
@@ -364,6 +372,14 @@ class m_wpdb extends wpdb {
 	 * @return boolean|resource The database connection resource on success, otherwise FALSE.
 	 */
 	public function db_connect( $query = 'SELECT 1' ) {
+		/*
+			 * Set the MySQLi error reporting off because WordPress handles its own.
+			 * This is due to the default value change from `MYSQLI_REPORT_OFF`
+			 * to `MYSQLI_REPORT_ERROR|MYSQLI_REPORT_STRICT` in PHP 8.1.
+			 *@since version 5.0
+			 */
+		mysqli_report( MYSQLI_REPORT_OFF );
+
 		if ( empty( $query ) ) {
 			return false;
 		}
