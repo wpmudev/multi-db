@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 4.0.2
+Version: 4.0.3
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -314,21 +314,48 @@ class m_wpdb extends wpdb {
 	}
 
 	/**
-	 * Real escapes, using mysqli_real_escape_string() or addslashes()
-	 *
-	 * @see mysqli_real_escape_string()
-	 * @see addslashes()
-	 *
-	 * @access private
-	 * @param  string $string The string to escape.
-	 * @return string Escaped string.
-	 */
-	function _real_escape( $string ) {
-		if ( is_object( $this->dbhglobal ) )
-			return mysqli_real_escape_string(  $this->dbhglobal,$string );
-		else
-			return addslashes( $string );
-	}
+     * Real escapes, using mysqli_real_escape_string() or addslashes().
+     *
+     * @since 5.0
+     * @access private
+     *
+     * @see mysqli_real_escape_string()
+     * @see addslashes()
+     * @see wpdb::_real_escape()
+     *
+     * @param mixed $data The data to escape. Can be a string, int, float, or bool.
+												
+     * @return string Escaped string, or empty string if data is non-scalar.
+     */
+    function _real_escape( $data ) {
+		
+		// Return an empty string if the data is not a scalar value.
+        if ( ! is_scalar( $data ) ) {
+            return '';
+        }
+		
+		if ( is_object( $this->dbhglobal ) ) {
+			$escaped = mysqli_real_escape_string( $this->dbhglobal, $data );
+		}
+		else {
+			$class = get_class( $this );
+
+			if ( function_exists( 'wp_load_translations_early' ) ) {
+				 wp_load_translations_early();
+			}
+				
+			/* translators: %s: Database access abstraction class, usually wpdb or a class extending wpdb. */
+			if ( function_exists( '_doing_it_wrong' ) ) {
+				_doing_it_wrong( $class, sprintf( __( '%s must set a database connection for use with escaping.' ), $class ), '3.6.0' );
+			}
+			
+			$escaped = addslashes( $data );
+        }
+
+        // Apply placeholder escaping provided by the parent wpdb class.
+        return $this->add_placeholder_escape( $escaped );
+    }
+	
 
 	/**
 	 * Returns global database version number.
