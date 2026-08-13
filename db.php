@@ -636,8 +636,8 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?([0-9,a-z,A-Z$_]+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^SHOW CREATE TABLE `?([0-9,a-z,A-Z$_]+?)`?\s*/is', $query, $maybe ) ) {
-			$table_name = $maybe[1];
+		} else if ( preg_match( '/^SHOW CREATE TABLE \s*`?([0-9a-zA-Z$_]+)`?(?:\.`?([0-9a-zA-Z$_]+)`?)?\s*/is', $query, $maybe ) ) {
+			$table_name = ! empty( $maybe[2] ) ? $maybe[2] : $maybe[1];
 		} else if ( preg_match( '/^CREATE\s+TABLE\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^DROP\s+TABLE\s+IF\s+EXISTS\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
