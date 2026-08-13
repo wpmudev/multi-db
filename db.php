@@ -4,7 +4,7 @@ Plugin Name: Multi-DB
 Plugin URI: https://premium.wpmudev.org/project/multi-db/
 Description: Allows you to scale your standard Multisite install to allow for millions of blogs and segment your database across multiple physical servers.
 Author: WPMU DEV
-Version: 4.0.1
+Version: 4.0.3
 Author URI: http://premium.wpmudev.org/
 WDP ID: 1
 
@@ -314,21 +314,48 @@ class m_wpdb extends wpdb {
 	}
 
 	/**
-	 * Real escapes, using mysqli_real_escape_string() or addslashes()
-	 *
-	 * @see mysqli_real_escape_string()
-	 * @see addslashes()
-	 *
-	 * @access private
-	 * @param  string $string The string to escape.
-	 * @return string Escaped string.
-	 */
-	function _real_escape( $string ) {
-		if ( is_object( $this->dbhglobal ) )
-			return mysqli_real_escape_string(  $this->dbhglobal,$string );
-		else
-			return addslashes( $string );
-	}
+     * Real escapes, using mysqli_real_escape_string() or addslashes().
+     *
+     * @since 5.0
+     * @access private
+     *
+     * @see mysqli_real_escape_string()
+     * @see addslashes()
+     * @see wpdb::_real_escape()
+     *
+     * @param mixed $data The data to escape. Can be a string, int, float, or bool.
+												
+     * @return string Escaped string, or empty string if data is non-scalar.
+     */
+    function _real_escape( $data ) {
+		
+		// Return an empty string if the data is not a scalar value.
+        if ( ! is_scalar( $data ) ) {
+            return '';
+        }
+		
+		if ( is_object( $this->dbhglobal ) ) {
+			$escaped = mysqli_real_escape_string( $this->dbhglobal, $data );
+		}
+		else {
+			$class = get_class( $this );
+
+			if ( function_exists( 'wp_load_translations_early' ) ) {
+				 wp_load_translations_early();
+			}
+				
+			/* translators: %s: Database access abstraction class, usually wpdb or a class extending wpdb. */
+			if ( function_exists( '_doing_it_wrong' ) ) {
+				_doing_it_wrong( $class, sprintf( __( '%s must set a database connection for use with escaping.' ), $class ), '3.6.0' );
+			}
+			
+			$escaped = addslashes( $data );
+        }
+
+        // Apply placeholder escaping provided by the parent wpdb class.
+        return $this->add_placeholder_escape( $escaped );
+    }
+	
 
 	/**
 	 * Returns global database version number.
@@ -489,19 +516,19 @@ class m_wpdb extends wpdb {
 		return trim( $query );
 	}
 
-	/**
+	 /**
 	 * Performs a MySQL database query, using current database connection.
 	 *
 	 * @access public
 	 * @param string $query Database query to execute.
-	 * @return int|false Number of rows affected/selected or false on error
+	 * @return int|bool Number of rows affected/selected, true on success for non-result queries, or false on error.
 	 */
 	public function query( $query ) {
-		if ( !$this->ready ) {
+		if ( ! $this->ready ) {
 			return false;
 		}
 
-		// some queries are made before the plugins have been loaded, and thus cannot be filtered with this method
+		// Some queries are made before the plugins have been loaded, and thus cannot be filtered with this method.
 		if ( function_exists( 'apply_filters' ) ) {
 			$query = apply_filters( 'query', $query );
 		}
@@ -509,20 +536,20 @@ class m_wpdb extends wpdb {
 		$return_val = 0;
 		$this->flush();
 
-		// use $this->dbh for read ops, and $this->dbhwrite for write ops
-		// use $this->dbhglobal for gloal table ops
-		//unset( $dbh );
-
-		// Test the global is set and if not then set it
+		// Use $this->dbh for read ops, and $this->dbhwrite for write ops.
+		// Use $this->dbhglobal for global table ops.
+		// Test if the global is set and if not then set it.
 		$dbh = $this->db_connect( $query );
-		if ( !is_object( $dbh ) ) {
+
+		if ( ! is_object( $dbh ) ) {
 			$this->_bail_db_connection_error();
 			return false;
 		}
 
-		// Log how the function was called
+		// Log how the function was called.
 		$this->func_call = '$db->query("' . $query . '")';
-		// Keep track of the last query for debug..
+		
+		// Keep track of the last query for debugging.
 		$this->last_query = $query;
 
 		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
@@ -530,46 +557,56 @@ class m_wpdb extends wpdb {
 		}
 
 		$this->result = mysqli_query( $dbh, $query );
+
 		$this->num_queries++;
 
 		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES ) {
 			$this->queries[] = array( $query, $this->timer_stop(), $this->get_caller() );
 		}
 
-		// If there is an error then take note of it..
+		// If there is an error then take note of it.
 		if ( is_object( $dbh ) && ( $this->last_error = mysqli_error( $dbh ) ) ) {
 			$this->print_error( $this->last_error );
 			return false;
 		}
-		
-		//Remove carriage returns https://stackoverflow.com/questions/3059091/how-to-remove-carriage-returns-from-output-of-string
-		$query=trim(preg_replace('~[[:cntrl:]]~', ' ', $query));
+
+		// Remove carriage returns: https://stackoverflow.com/questions/3059091/how-to-remove-carriage-returns-from-output-of-string
+		$query = trim( preg_replace( '~[[:cntrl:]]~', ' ', $query ) );
 
 		if ( preg_match( "/^\\s*(insert|delete|update|replace|alter|create|drop|truncate) /i", $query ) ) {
 			$this->rows_affected = mysqli_affected_rows( $dbh );
-			// Take note of the insert_id
+			
+			// Take note of the insert_id.
 			if ( preg_match( "/^\\s*(insert|replace) /i", $query ) ) {
 				$this->insert_id = mysqli_insert_id( $dbh );
 			}
-			// Return number of rows affected
+			
+			// Return number of rows affected.
 			$return_val = $this->rows_affected;
 		} else {
-			$i = 0;
-			$thefield_count=$this->result->field_count;
-			while ( $i < $thefield_count )  {
-				$this->col_info[$i] = mysqli_fetch_field( $this->result );
+			// Ensure the result is a valid mysqli_result object before attempting to fetch data (e.g., handles BEGIN/COMMIT queries safely). Since 2.1.
+			if ( ! is_object( $this->result ) ) {
+				return true;
+			}
+
+			$i              = 0;
+			$thefield_count = $this->result->field_count;
+
+			while ( $i < $thefield_count ) {
+				$this->col_info[ $i ] = mysqli_fetch_field( $this->result );
 				$i++;
 			}
 
 			$num_rows = 0;
+
 			while ( $row = $this->result->fetch_object() ) {
-				$this->last_result[$num_rows] = $row;
+				$this->last_result[ $num_rows ] = $row;
 				$num_rows++;
 			}
 
-			//mysqli_free_result( $this->result );
-
-			// Log number of rows the query returned and return number of rows selected
+			// mysqli_free_result( $this->result );
+			
+			// Log number of rows the query returned and return number of rows selected.
 			$this->num_rows = $num_rows;
 			$return_val     = $num_rows;
 		}
@@ -626,8 +663,8 @@ class m_wpdb extends wpdb {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?([0-9,a-z,A-Z$_]+)`?\s+/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
-		} else if ( preg_match( '/^SHOW CREATE TABLE `?([0-9,a-z,A-Z$_]+?)`?\s*/is', $query, $maybe ) ) {
-			$table_name = $maybe[1];
+		} else if ( preg_match( '/^SHOW CREATE TABLE \s*`?([0-9a-zA-Z$_]+)`?(?:\.`?([0-9a-zA-Z$_]+)`?)?\s*/is', $query, $maybe ) ) {
+			$table_name = ! empty( $maybe[2] ) ? $maybe[2] : $maybe[1];
 		} else if ( preg_match( '/^CREATE\s+TABLE\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
 			$table_name = $maybe[1];
 		} else if ( preg_match( '/^DROP\s+TABLE\s+IF\s+EXISTS\s+`?([0-9,a-z,A-Z$_]+)`?\s*/is', $query, $maybe ) ) {
